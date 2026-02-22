@@ -1,0 +1,114 @@
+name: CI
+
+on:
+    push:
+        branches: [main, develop]
+    pull_request:
+        branches: [main]
+
+jobs:
+    # ── Python backend ──────────────────────────────────────────────────────────
+    backend:
+        name: Backend — lint, type-check, test
+        runs-on: ubuntu-latest
+
+        services:
+            postgres:
+                image: postgres:16-alpine
+                env:
+                    POSTGRES_USER: openda
+                    POSTGRES_PASSWORD: openda
+                    POSTGRES_DB: openda
+                ports: ['5432:5432']
+                options: >-
+                    --health-cmd pg_isready
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+
+            redis:
+                image: redis:7-alpine
+                ports: ['6379:6379']
+                options: >-
+                    --health-cmd "redis-cli ping"
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+
+        env:
+            DATABASE_URL: postgresql+asyncpg://openda:openda@localhost:5432/openda
+            REDIS_URL: redis://localhost:6379/0
+            LLM_MODEL: anthropic/claude-sonnet-4-6-20250514
+            LLM_API_KEY: test-key
+            UPLOAD_DIR: /tmp/openda-uploads
+
+        defaults:
+            run:
+                working-directory: backend
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Install UV
+              uses: astral-sh/setup-uv@v3
+              with:
+                  version: 'latest'
+
+            - name: Set up Python
+              run: uv python install 3.12
+
+            - name: Create venv + install deps
+              run: uv venv && uv pip install --python .venv/bin/python -e ".[dev]"
+
+            - name: Ruff lint
+              run: .venv/bin/ruff check .
+
+            - name: Ruff format check
+              run: .venv/bin/ruff format --check .
+
+            - name: Mypy type check
+              run: .venv/bin/mypy app main.py --ignore-missing-imports
+
+            - name: Run migrations
+              run: .venv/bin/alembic upgrade head
+
+            - name: Pytest
+              run: .venv/bin/pytest tests/ -v --tb=short
+
+    # ── React frontends ─────────────────────────────────────────────────────────
+    frontend:
+        name: Frontend — typecheck, lint
+        runs-on: ubuntu-latest
+
+        strategy:
+            matrix:
+                app: [frontend-accountant, frontend-operator]
+
+        defaults:
+            run:
+                working-directory: ${{ matrix.app }}
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: pnpm/action-setup@v4
+              with:
+                  version: 9
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: pnpm
+                  cache-dependency-path: ${{ matrix.app }}/pnpm-lock.yaml
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: TypeScript check
+              run: pnpm typecheck
+
+            - name: Lint
+              run: pnpm lint || true # warn only until ESLint config is hardened
+
+            - name: Build
+              run: pnpm build

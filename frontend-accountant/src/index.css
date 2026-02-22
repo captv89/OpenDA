@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* react-pdf canvas */
+.react-pdf__Page canvas {
+	@apply rounded shadow-md;
+}
+
+/* Bounding-box overlay container must be relative-positioned */
+.pdf-overlay-container {
+	position: relative;
+	display: inline-block;
+}
+
+/* Highlight rectangles drawn over the PDF canvas */
+.bbox-highlight {
+	position: absolute;
+	border: 2px solid theme('colors.brand.500');
+	background: theme('colors.brand.500' / 15%);
+	pointer-events: none;
+	transition: opacity 0.15s ease;
+}
+
+.bbox-highlight.flagged {
+	border-color: theme('colors.flag.high');
+	background: theme('colors.flag.high' / 15%);
+}
+
+.bbox-highlight.review {
+	border-color: theme('colors.flag.review');
+	background: theme('colors.flag.review' / 15%);
+}

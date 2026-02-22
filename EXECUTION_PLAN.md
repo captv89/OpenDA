@@ -5,6 +5,7 @@
 - React: pnpm workspace monorepo (both frontends under one `pnpm-workspace.yaml`)
 - Auth: Skipped for MVP — two hardcoded identities (`accountant-001`, `operator-001`) passed as a static header `X-User-Id`
 - Build scope: All 6 phases
+- **LLM layer: Provider-agnostic via [LiteLLM](https://github.com/BerriAI/litellm)** — configure any model (Claude, Gemini, OpenAI, Ollama, etc.) via two env vars: `LLM_MODEL` + `LLM_API_KEY`
 
 ---
 
@@ -13,8 +14,8 @@
 | Phase | Title | Status |
 |-------|-------|--------|
 | 0 | Monorepo Scaffold | ✅ Complete |
-| 1 | Data Modeling & Synthetic Assets | 🔄 In Progress |
-| 2 | Backend API & AI Engine | ⬜ Not Started |
+| 1 | Data Modeling & Synthetic Assets | ✅ Complete |
+| 2 | Backend API & AI Engine | 🔄 In Progress |
 | 3 | Workflow State Machine | ⬜ Not Started |
 | 4 | Accountant React App | ⬜ Not Started |
 | 5 | Operator React App | ⬜ Not Started |
@@ -44,16 +45,30 @@ Before any code is written, establish the exact folder skeleton and tooling conf
 
 | Step | File | Notes | Status |
 |------|------|-------|--------|
-| 1.1 | `backend/app/schemas/pda.py` | Pydantic v2 `PDASchema` with `CostItem`, `CategoryEnum`, validator asserting `total_estimated == sum(estimated_items[*].estimated_value)` | ⬜ |
-| 1.2 | `backend/app/schemas/fda.py` | `FDASchema` with nested `BoundingBox`, `ExtractedCostItem`. `confidence_score` field-validated to `[0.0, 1.0]`. Full schema exportable via `model_json_schema()` for LLM prompt injection | ⬜ |
-| 1.3 | `backend/app/schemas/deviation.py` | `DeviationReport`, `DeviationLineItem`, `FlagReasonEnum` | ⬜ |
-| 1.4 | `test_data/generate_fixtures.py` | Uses `reportlab` to produce `fda_pdfs/fda_001.pdf`–`fda_005.pdf` (mix of clean text, low-contrast, cursive overlay). Produces `pda_001.json`–`pda_005.json`. Intentional anomalies: one over-billing (+25%), one missing line item, one low-confidence `<0.85` extraction | ⬜ |
+| 1.1 | `backend/app/schemas/pda.py` | Pydantic v2 `PDASchema` with `CostItem`, `CategoryEnum`, validator asserting `total_estimated == sum(estimated_items[*].estimated_value)` | ✅ |
+| 1.2 | `backend/app/schemas/fda.py` | `FDASchema` with nested `BoundingBox`, `ExtractedCostItem`. `confidence_score` field-validated to `[0.0, 1.0]`. Full schema exportable via `model_json_schema()` for LLM prompt injection | ✅ |
+| 1.3 | `backend/app/schemas/deviation.py` | `DeviationReport`, `DeviationLineItem`, `FlagReasonEnum` | ✅ |
+| 1.4 | `test_data/generate_fixtures.py` | Uses `reportlab` to produce `fda_pdfs/fda_001.pdf`–`fda_005.pdf` (mix of clean text, low-contrast, cursive overlay). Produces `pda_001.json`–`pda_005.json`. Intentional anomalies: one over-billing (+25%), one missing line item, one low-confidence `<0.85` extraction | ✅ |
 
 ---
 
 ## Phase 2 — Backend API & AI Engine *(~3 hrs)*
 
-**Goal:** Working FastAPI app that accepts an FDA PDF, extracts it with Claude, and stores results.
+**Goal:** Working FastAPI app that accepts an FDA PDF, extracts it with any LLM provider, and stores results.
+
+### LLM Abstraction Strategy
+
+All LLM calls are routed through **LiteLLM** (`backend/app/services/llm_provider.py`), which provides a single `AsyncLLMProvider` class. Configure the active model and credentials entirely in `.env`:
+
+| Provider | `LLM_MODEL` example | `LLM_API_KEY` |
+|----------|---------------------|---------------|
+| Anthropic Claude | `anthropic/claude-sonnet-4-6-20250514` | Anthropic API key |
+| Google Gemini | `gemini/gemini-2.0-flash` | Google AI API key |
+| OpenAI | `openai/gpt-4o` | OpenAI API key |
+| Ollama (local) | `ollama/llama3.3` | `ollama` (no key needed) |
+| Azure OpenAI | `azure/gpt-4o` | Azure API key |
+
+No application code changes are required when switching providers — only `.env` values change.
 
 ### 2.1 — SQLAlchemy Models & Alembic
 
@@ -63,12 +78,14 @@ Before any code is written, establish the exact folder skeleton and tooling conf
 
 | Step | Status |
 |------|--------|
-| 2.1 SQLAlchemy Models + Alembic init | ⬜ |
-| 2.2 FastAPI app bootstrap + health route | ⬜ |
-| 2.3 Upload endpoint `POST /api/v1/da/upload` | ⬜ |
-| 2.4 Docling + Claude extraction service | ⬜ |
-| 2.5 Celery worker task | ⬜ |
-| 2.6 Deviation engine | ⬜ |
+| 2.0 Add `litellm` to dependencies + install | ✅ |
+| 2.1 SQLAlchemy Models + Alembic init | ✅ |
+| 2.2 FastAPI app bootstrap + config + health route | ✅ |
+| 2.3 Upload endpoint `POST /api/v1/da/upload` | ✅ |
+| 2.4 `LLMProvider` abstraction + Docling extraction service | ✅ |
+| 2.5 Celery worker task | ✅ |
+| 2.6 Deviation engine | ✅ |
+| 2.7 Alembic env.py (async) + hand-written initial migration | ✅ |
 
 ---
 
@@ -78,11 +95,13 @@ Before any code is written, establish the exact folder skeleton and tooling conf
 
 | Step | Detail | Status |
 |------|--------|--------|
-| 3.1 | `DAStateMachine` class with `VALID_TRANSITIONS` dict | ⬜ |
-| 3.2 | State enum: `UPLOADING → AI_PROCESSING → PENDING_ACCOUNTANT_REVIEW → PENDING_OPERATOR_APPROVAL → APPROVED → REJECTED → PUSHED_TO_ERP` | ⬜ |
-| 3.3 | `GET /api/v1/da/{da_id}/status` | ⬜ |
-| 3.4 | `PUT /api/v1/da/{da_id}/submit-to-operator` | ⬜ |
-| 3.5 | `POST /api/v1/da/{da_id}/approve` + webhook fire | ⬜ |
+| 3.1 | `DAStateMachine` class with `VALID_TRANSITIONS` dict | ✅ |
+| 3.2 | State enum: `UPLOADING → AI_PROCESSING → PENDING_ACCOUNTANT_REVIEW → PENDING_OPERATOR_APPROVAL → APPROVED → REJECTED → PUSHED_TO_ERP` | ✅ |
+| 3.3 | `GET /api/v1/da/{da_id}/status` | ✅ |
+| 3.4 | `PUT /api/v1/da/{da_id}/submit-to-operator` | ✅ |
+| 3.5 | `POST /api/v1/da/{da_id}/approve` + webhook fire | ✅ |
+| 3.6 | `POST /api/v1/da/{da_id}/reject` | ✅ |
+| 3.7 | `GET /api/v1/da/{da_id}/audit-log` | ✅ |
 
 ---
 
@@ -94,13 +113,15 @@ Before any code is written, establish the exact folder skeleton and tooling conf
 
 | Step | Component / File | Status |
 |------|-----------------|--------|
-| 4.1 | `src/store/daStore.ts` — Zustand store | ⬜ |
-| 4.2 | `src/api/daApi.ts` — react-query hooks | ⬜ |
-| 4.3 | `src/components/PDFViewer.tsx` — PDF + Canvas overlay | ⬜ |
-| 4.4 | `src/components/ItemForm.tsx` — editable cost item form | ⬜ |
-| 4.5 | `src/components/FlagBadge.tsx` | ⬜ |
-| 4.6 | `src/components/SubmitButton.tsx` | ⬜ |
-| 4.7 | `src/pages/ReviewPage.tsx` — 50/50 split layout | ⬜ |
+| 4.0 | `package.json`, `vite.config.ts`, `tsconfig.json`, Tailwind config | ✅ |
+| 4.1 | `src/store/daStore.ts` — Zustand store | ✅ |
+| 4.2 | `src/api/daApi.ts` — react-query hooks | ✅ |
+| 4.3 | `src/components/PDFViewer.tsx` — PDF + Canvas overlay | ✅ |
+| 4.4 | `src/components/ItemForm.tsx` — editable cost item form | ✅ |
+| 4.5 | `src/components/FlagBadge.tsx` | ✅ |
+| 4.6 | `src/components/SubmitButton.tsx` | ✅ |
+| 4.7 | `src/pages/ReviewPage.tsx` — 50/50 split layout | ✅ |
+| 4.8 | `src/types/index.ts` — shared TypeScript types | ✅ |
 
 ---
 
@@ -112,12 +133,14 @@ Before any code is written, establish the exact folder skeleton and tooling conf
 
 | Step | Component | Status |
 |------|-----------|--------|
-| 5.1 | `src/components/DeviationTable.tsx` | ⬜ |
-| 5.2 | `src/components/SummaryBar.tsx` | ⬜ |
-| 5.3 | `src/components/JustificationInput.tsx` | ⬜ |
-| 5.4 | `src/components/PDFModal.tsx` | ⬜ |
-| 5.5 | `src/components/ApproveButton.tsx` | ⬜ |
-| 5.6 | `src/pages/OperatorPage.tsx` | ⬜ |
+| 5.0 | `package.json`, `vite.config.ts`, `tsconfig.json`, Tailwind config | ✅ |
+| 5.1 | `src/components/DeviationTable.tsx` | ✅ |
+| 5.2 | `src/components/SummaryBar.tsx` | ✅ |
+| 5.3 | `src/components/JustificationInput.tsx` | ✅ |
+| 5.4 | `src/components/PDFModal.tsx` | ✅ |
+| 5.5 | `src/components/ApproveButton.tsx` | ✅ |
+| 5.6 | `src/pages/OperatorPage.tsx` | ✅ |
+| 5.7 | `src/api/daApi.ts` + `src/types/index.ts` | ✅ |
 
 > **Shared package:** `PDFViewer` and `BoundingBox` TypeScript type extracted to `packages/ui/` in the pnpm workspace to avoid duplication.
 
@@ -127,12 +150,13 @@ Before any code is written, establish the exact folder skeleton and tooling conf
 
 | Step | Deliverable | Status |
 |------|-------------|--------|
-| 6.1 | `docker-compose.yml` — all 6 services with health checks | ⬜ |
-| 6.2 | `backend/Dockerfile` — UV-based multi-stage build | ⬜ |
-| 6.3 | `frontend-*/Dockerfile` — pnpm + Vite build → Nginx Alpine | ⬜ |
-| 6.4 | `README.md` — Mermaid flow diagram + quickstart + ERP webhook guide | ⬜ |
-| 6.5 | `.github/workflows/ci.yml` — ruff, mypy, pytest, pnpm lint/typecheck | ⬜ |
-| 6.6 | MIT `LICENSE` | ⬜ |
+| 6.1 | `docker-compose.yml` — all 6 services with health checks | ✅ |
+| 6.2 | `backend/Dockerfile` — UV-based multi-stage build | ✅ |
+| 6.3 | `frontend-*/Dockerfile` — pnpm + Vite build → Nginx Alpine | ✅ |
+| 6.4 | `README.md` — Mermaid flow diagram + quickstart + ERP webhook guide | ✅ |
+| 6.5 | `.github/workflows/ci.yml` — ruff, mypy, pytest, pnpm lint/typecheck | ✅ |
+| 6.6 | MIT `LICENSE` | ✅ |
+| 6.7 | `backend/tests/` — smoke + deviation engine unit tests | ✅ |
 
 ---
 
