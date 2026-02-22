@@ -16,6 +16,10 @@
 /* Highlight rectangles drawn over the PDF canvas */
 .bbox-highlight {
 	position: absolute;
+	left: var(--bbox-x);
+	top: var(--bbox-y);
+	width: var(--bbox-w);
+	height: var(--bbox-h);
 	border: 2px solid theme('colors.brand.500');
 	background: theme('colors.brand.500' / 15%);
 	pointer-events: none;

@@ -5,3 +5,12 @@
 .react-pdf__Page canvas {
 	@apply rounded shadow-md;
 }
+
+/* Bounding-box overlay positioned via CSS custom properties */
+.bbox-overlay {
+	position: absolute;
+	left: var(--bbox-x);
+	top: var(--bbox-y);
+	width: var(--bbox-w);
+	height: var(--bbox-h);
+}

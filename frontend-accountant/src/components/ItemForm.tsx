@@ -87,6 +87,7 @@ export function ItemForm({ item }: Props) {
           </div>
           <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden">
             <div
+              ref={(el) => { if (el) el.style.width = `${item.confidence_score! * 100}%` }}
               className={`h-full rounded-full transition-all ${
                 item.confidence_score >= 0.85
                   ? 'bg-green-500'
@@ -94,7 +95,6 @@ export function ItemForm({ item }: Props) {
                     ? 'bg-amber-400'
                     : 'bg-red-500'
               }`}
-              style={{ width: `${item.confidence_score * 100}%` }}
             />
           </div>
         </div>
@@ -105,6 +105,8 @@ export function ItemForm({ item }: Props) {
         <div className="space-y-2 pt-2 border-t border-slate-100">
           <select
             value={edit.status}
+            aria-label="Item status"
+            title="Item status"
             onChange={(e) => setItemStatus(item.item_id, e.target.value as ItemStatus)}
             onClick={(e) => e.stopPropagation()}
             className="w-full text-sm border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500"

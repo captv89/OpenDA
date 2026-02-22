@@ -86,10 +86,11 @@ function UploadForm({ onUploaded }: { onUploaded: (daId: string, url: string) =>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="pda_json" className="block text-sm font-medium text-slate-700 mb-1">
             PDA (JSON file)
           </label>
           <input
+            id="pda_json"
             name="pda_json"
             type="file"
             accept=".json,application/json"
@@ -99,10 +100,11 @@ function UploadForm({ onUploaded }: { onUploaded: (daId: string, url: string) =>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="fda_pdf" className="block text-sm font-medium text-slate-700 mb-1">
             FDA PDF
           </label>
           <input
+            id="fda_pdf"
             name="fda_pdf"
             type="file"
             accept="application/pdf"

@@ -113,15 +113,14 @@ export function PDFModal({ pdfUrl, items, selectedItemId, onClose }: Props) {
                 return (
                   <div
                     key={item.item_id}
-                    className="absolute border-2 pointer-events-none transition-all"
-                    style={{
-                      left: bb.x1 * scaleX,
-                      top: bb.y1 * scaleY,
-                      width: (bb.x2 - bb.x1) * scaleX,
-                      height: (bb.y2 - bb.y1) * scaleY,
-                      borderColor: isSelected ? '#ef4444' : '#3b82f6',
-                      backgroundColor: isSelected ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)',
-                      zIndex: isSelected ? 10 : 1,
+                    className={`bbox-overlay absolute border-2 pointer-events-none transition-all ${isSelected ? 'border-red-500 bg-red-500/10 z-10' : 'border-blue-500 bg-blue-500/10 z-[1]'}`}
+                    ref={(el) => {
+                      if (el) {
+                        el.style.setProperty('--bbox-x', `${bb.x1 * scaleX}px`)
+                        el.style.setProperty('--bbox-y', `${bb.y1 * scaleY}px`)
+                        el.style.setProperty('--bbox-w', `${(bb.x2 - bb.x1) * scaleX}px`)
+                        el.style.setProperty('--bbox-h', `${(bb.y2 - bb.y1) * scaleY}px`)
+                      }
                     }}
                   />
                 )

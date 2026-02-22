@@ -111,15 +111,14 @@ export function PDFViewer({ pdfUrl, items }: Props) {
               <div
                 key={item.item_id}
                 title={item.description}
-                className={`bbox-highlight ${isFlagged ? 'flagged' : ''} ${isReview ? 'review' : ''}`}
-                style={{
-                  left,
-                  top,
-                  width,
-                  height,
-                  opacity: isFocused ? 1 : 0.5,
-                  zIndex: isFocused ? 10 : 1,
-                  cursor: 'pointer',
+                className={`bbox-highlight cursor-pointer ${isFlagged ? 'flagged' : ''} ${isReview ? 'review' : ''} ${isFocused ? 'opacity-100 z-10' : 'opacity-50 z-[1]'}`}
+                ref={(el) => {
+                  if (el) {
+                    el.style.setProperty('--bbox-x', `${left}px`)
+                    el.style.setProperty('--bbox-y', `${top}px`)
+                    el.style.setProperty('--bbox-w', `${width}px`)
+                    el.style.setProperty('--bbox-h', `${height}px`)
+                  }
                 }}
                 onClick={() => {
                   focusItem(item.item_id === focusedItemId ? null : item.item_id)
