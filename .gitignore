@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.eggs/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+
+# UV
+uv.lock
+
+# Environment variables
+.env
+*.env.local
+
+# Uploads / data
+uploads/
+test_data/fda_pdfs/*.pdf
+test_data/pda_*.json
+
+# Node / pnpm
+node_modules/
+.pnpm-store/
+dist/
+*.local
+
+# React build outputs
+frontend-accountant/dist/
+frontend-operator/dist/
+packages/ui/dist/
+
+# Docker volumes
+postgres_data/
+redis_data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
