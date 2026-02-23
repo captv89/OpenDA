@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -14,10 +15,22 @@ from app.config import get_settings
 from app.database import engine
 from app.models.base import Base
 
+# ---------------------------------------------------------------------------
+# Logging — structured, levelled, goes to stdout for Docker log capture
+# ---------------------------------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+    stream=sys.stdout,
+    force=True,
 )
+# Show SQL statements and Alembic steps in the container logs
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)  # flip to INFO to see SQL
+logging.getLogger("alembic").setLevel(logging.INFO)
+logging.getLogger("uvicorn").setLevel(logging.INFO)
+logging.getLogger("uvicorn.access").setLevel(logging.INFO)
+
 logger = logging.getLogger(__name__)
 
 settings = get_settings()

@@ -80,8 +80,8 @@ services:
 
   frontend-accountant:
     build:
-      context: ./frontend-accountant
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend-accountant/Dockerfile
     restart: unless-stopped
     ports:
       - "3000:80"
@@ -91,8 +91,8 @@ services:
 
   frontend-operator:
     build:
-      context: ./frontend-operator
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend-operator/Dockerfile
     restart: unless-stopped
     ports:
       - "3001:80"

@@ -1,23 +1,29 @@
 # ── Stage 1: build ───────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
 
-COPY . .
+# Copy monorepo manifests and lockfile (cache layer)
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY frontend-operator/package.json ./frontend-operator/
 
+# Install only this workspace's dependencies
+RUN pnpm install --frozen-lockfile --filter frontend-operator
+
+COPY frontend-operator/ ./frontend-operator/
+
+# Backend API URL at build time (can be overridden via --build-arg)
 ARG VITE_API_BASE=http://backend:8000
 ENV VITE_API_BASE=$VITE_API_BASE
 
-RUN pnpm build
+RUN pnpm --filter frontend-operator build
 
 # ── Stage 2: serve via Nginx ──────────────────────────────────────────────────
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:stable-alpine AS runtime
 
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/frontend-operator/dist /usr/share/nginx/html
 
 RUN printf 'server {\n\
     listen 80;\n\

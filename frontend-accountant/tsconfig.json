@@ -16,10 +16,9 @@
 		"noUnusedParameters": true,
 		"noFallthroughCasesInSwitch": true,
 		"forceConsistentCasingInFileNames": true,
-		"ignoreDeprecations": "6.0",
-		"baseUrl": ".",
+		"types": ["vite/client"],
 		"paths": {
-			"@/*": ["src/*"]
+			"@/*": ["./src/*"]
 		}
 	},
 	"include": ["src"],
