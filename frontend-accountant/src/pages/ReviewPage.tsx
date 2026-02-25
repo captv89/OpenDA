@@ -56,6 +56,15 @@ function UploadForm({ onUploaded }: { onUploaded: (daId: string, url: string) =>
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+
+    // The backend expects pda_json as a plain JSON string (Form field), not a file.
+    // Read the selected JSON file and replace the File entry with its text content.
+    const pdaFile = fd.get('pda_json') as File | null
+    if (pdaFile && pdaFile.size > 0) {
+      const text = await pdaFile.text()
+      fd.set('pda_json', text)
+    }
+
     const file = fd.get('fda_pdf') as File | null
     if (file) {
       const objectUrl = URL.createObjectURL(file)
@@ -72,18 +81,6 @@ function UploadForm({ onUploaded }: { onUploaded: (daId: string, url: string) =>
         className="w-full max-w-lg bg-white rounded-xl shadow-lg p-8 space-y-5"
       >
         <h2 className="text-xl font-bold text-slate-800">Upload Disbursement Account</h2>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            Port Call ID
-          </label>
-          <input
-            name="port_call_id"
-            required
-            placeholder="PC-2024-SGSIN-0001"
-            className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-        </div>
 
         <div>
           <label htmlFor="pda_json" className="block text-sm font-medium text-slate-700 mb-1">

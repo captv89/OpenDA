@@ -1,8 +1,8 @@
 """Celery task definitions for background FDA processing.
 
 Tasks are synchronous entry points that delegate to async services via
-asyncio.run(). Each Celery worker process has its own event loop, so
-this pattern is safe and avoids the complexity of async Celery configuration.
+asyncio.run(). Heavy extraction work (Docling + LLM) is delegated to the
+dedicated `extractor` microservice via HTTP, keeping this image slim.
 """
 
 from __future__ import annotations
@@ -12,15 +12,16 @@ import json
 import logging
 from pathlib import Path
 
+import httpx
 from celery import Task
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.config import get_settings
 from app.models.disbursement_account import DisbursementAccount
+from app.schemas.fda import FDASchema
 from app.schemas.pda import PDASchema
 from app.services.deviation_engine import DeviationEngine
-from app.services.extraction_service import ExtractionService
 from app.services.state_machine import DAStateMachine
 from app.workers.celery_app import celery_app
 

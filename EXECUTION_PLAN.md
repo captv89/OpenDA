@@ -9,6 +9,37 @@
 
 ---
 
+## Service Architecture
+
+```
+┌────────────────────┐  ┌────────────────────┐
+Browser :3000          Browser :3001
+frontend-accountant    frontend-operator
+(nginx ~50MB)          (nginx ~50MB)
+        │                     │
+        └────────┬────────┘
+                 │
+         backend :8000
+         FastAPI + Celery client
+         (~400 MB — no docling)
+                 │
+          ┌───────┴───────┐
+          │             │
+        Redis         Postgres
+          │
+    celery-worker
+    (same slim image)
+          │ HTTP /extract
+          │ (internal network only)
+       extractor :8001
+       Docling + LiteLLM
+       (~8 GB — built once)
+```
+
+**Why separated:** `docling` + `torch` = ~8 GB. Previously duplicated in both `backend` and `celery-worker` (20 GB total). Now built once in `extractor`, which is the only container that ever touches PDFs or calls the LLM. `backend` + `celery-worker` are each ~400 MB.
+
+---
+
 ## Progress Tracker
 
 | Phase | Title | Status |
@@ -150,8 +181,9 @@ No application code changes are required when switching providers — only `.env
 
 | Step | Deliverable | Status |
 |------|-------------|--------|
-| 6.1 | `docker-compose.yml` — all 6 services with health checks | ✅ |
-| 6.2 | `backend/Dockerfile` — UV-based multi-stage build | ✅ |
+| 6.1 | `docker-compose.yml` — all 7 services with health checks (added `extractor`) | ✅ |
+| 6.2 | `backend/Dockerfile` — UV-based single-stage slim build (no docling) | ✅ |
+| 6.2a | `extractor/Dockerfile` — UV-based build with docling + litellm | ✅ |
 | 6.3 | `frontend-*/Dockerfile` — pnpm + Vite build → Nginx Alpine | ✅ |
 | 6.4 | `README.md` — Mermaid flow diagram + quickstart + ERP webhook guide | ✅ |
 | 6.5 | `.github/workflows/ci.yml` — ruff, mypy, pytest, pnpm lint/typecheck | ✅ |

@@ -85,7 +85,6 @@ def _get_user_id(x_user_id: str | None, settings: Settings, role: str) -> str:
 
 @router.post("/upload", response_model=UploadResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_fda(
-    port_call_id: str = Form(..., description="Port call identifier e.g. PC-2025-SGSIN-0042"),
     pda_json: str = Form(..., description="PDA JSON string (serialised PDASchema)"),
     fda_pdf: UploadFile = File(..., description="FDA PDF file"),
     session: AsyncSession = Depends(get_db),
@@ -109,11 +108,7 @@ async def upload_fda(
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Invalid PDA JSON: {exc}") from exc
 
-    if pda.port_call_id != port_call_id:
-        raise HTTPException(
-            status_code=422,
-            detail=f"port_call_id mismatch: form={port_call_id}, pda={pda.port_call_id}",
-        )
+    port_call_id = pda.port_call_id
 
     # ── Upsert PortCall ───────────────────────────────────────────────────────
     result = await session.execute(

@@ -31,7 +31,27 @@ services:
       timeout: 5s
       retries: 10
 
+  # ── Extractor ──────────────────────────────────────────────────────────────
+  # Heavy image: docling + torch + litellm (~8 GB).
+  # Built once, shared by zero other services. Never exposed externally.
+
+  extractor:
+    build:
+      context: ./extractor
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s  # docling model-loading takes time on first start
+
   # ── Backend ────────────────────────────────────────────────────────────────
+  # Slim image (~400 MB): FastAPI + SQLAlchemy + Celery client only.
 
   backend:
     build:
@@ -42,6 +62,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://openda:openda@postgres:5432/openda
       REDIS_URL: redis://redis:6379/0
+      EXTRACTOR_URL: http://extractor:8001
     ports:
       - "8000:8000"
     volumes:
@@ -68,12 +89,15 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://openda:openda@postgres:5432/openda
       REDIS_URL: redis://redis:6379/0
+      EXTRACTOR_URL: http://extractor:8001
     volumes:
       - ./uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      extractor:
         condition: service_healthy
 
   # ── Frontends ──────────────────────────────────────────────────────────────

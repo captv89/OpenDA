@@ -1,7 +1,8 @@
 # ── Stage 1: build ───────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Pin pnpm version — avoids corepack hitting npm registry at build time
+RUN npm install -g pnpm@10.30.1
 
 WORKDIR /app
 
@@ -14,8 +15,10 @@ RUN pnpm install --frozen-lockfile --filter frontend-accountant
 
 COPY frontend-accountant/ ./frontend-accountant/
 
-# Backend API URL at build time (can be overridden via --build-arg)
-ARG VITE_API_BASE=http://backend:8000
+# Leave VITE_API_BASE empty so the JS uses relative URLs (/api/v1/...).
+# Nginx's location /api/ block proxies those to http://backend:8000 internally.
+# Never bake a Docker-internal hostname into the bundle — browsers can't resolve it.
+ARG VITE_API_BASE=
 ENV VITE_API_BASE=$VITE_API_BASE
 
 RUN pnpm --filter frontend-accountant build

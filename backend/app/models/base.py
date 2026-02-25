@@ -9,7 +9,9 @@ from sqlalchemy.orm import DeclarativeBase, mapped_column, MappedColumn
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    # Return naive UTC datetime — columns are TIMESTAMP WITHOUT TIME ZONE.
+    # asyncpg rejects timezone-aware datetimes for such columns.
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Base(DeclarativeBase):

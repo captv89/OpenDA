@@ -1,10 +1,4 @@
-"""Application settings — loaded from .env via pydantic-settings.
-
-All LLM configuration is provider-agnostic. Set LLM_MODEL to any LiteLLM
-model string (e.g. 'anthropic/claude-sonnet-4-6-20250514', 'openai/gpt-4o',
-'gemini/gemini-2.0-flash', 'ollama/llama3.3') and LLM_API_KEY to the
-corresponding API key. No code changes required when switching providers.
-"""
+"""Application settings — loaded from .env via pydantic-settings."""
 
 from __future__ import annotations
 
@@ -30,44 +24,22 @@ class Settings(BaseSettings):
     # ── Database ──────────────────────────────────────────────────────────────
     database_url: str = Field(
         default="postgresql+asyncpg://openda:openda@localhost:5432/openda",
-        description="Async SQLAlchemy database URL",
     )
 
     # ── Redis / Celery ────────────────────────────────────────────────────────
-    redis_url: str = Field(
-        default="redis://localhost:6379/0",
-        description="Redis connection URL used by Celery broker and result backend",
-    )
+    redis_url: str = Field(default="redis://localhost:6379/0")
 
-    # ── LLM Provider (LiteLLM-routed — provider-agnostic) ────────────────────
-    llm_model: str = Field(
-        default="anthropic/claude-sonnet-4-6-20250514",
-        description=(
-            "LiteLLM model string. Examples:\n"
-            "  anthropic/claude-sonnet-4-6-20250514\n"
-            "  openai/gpt-4o\n"
-            "  gemini/gemini-2.0-flash\n"
-            "  ollama/llama3.3"
-        ),
-    )
-    llm_api_key: str = Field(
-        default="",
-        description="API key for the configured LLM provider. Use 'ollama' for local Ollama.",
-    )
-    llm_max_tokens: int = Field(default=8192)
-    llm_temperature: float = Field(default=0.0, ge=0.0, le=2.0)
-    llm_timeout_seconds: int = Field(default=120)
-    llm_max_retries: int = Field(default=3)
+    # ── Extractor microservice ─────────────────────────────────────────────────
+    # Heavy extraction work (Docling + LLM) is delegated here via HTTP.
+    # Override to http://localhost:8001 for local dev without Docker.
+    extractor_url: str = Field(default="http://extractor:8001")
 
-    # Ollama / Azure overrides (passed through to LiteLLM when set)
-    ollama_api_base: str | None = Field(default=None)
-    azure_api_base: str | None = Field(default=None)
-    azure_api_version: str | None = Field(default=None)
+    # ── LLM model (audit logging only — actual calls are made by extractor) ───
+    llm_model: str = Field(default="anthropic/claude-sonnet-4-6-20250514")
 
     # ── Webhook ───────────────────────────────────────────────────────────────
     webhook_url: str = Field(
         default="http://localhost:8000/api/v1/da/webhook-echo",
-        description="ERP/VMS webhook endpoint that receives the final canonical JSON",
     )
 
     # ── Auth (MVP: static user ids passed via X-User-Id header) ──────────────
