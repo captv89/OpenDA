@@ -25,14 +25,12 @@ export function PDFModal({ pdfUrl, items, selectedItemId, onClose }: Props) {
   )
   const [totalPages, setTotalPages] = useState(1)
   const [pageWidth, setPageWidth] = useState(0)
-  const [pageHeight, setPageHeight] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const onDocLoad = useCallback(({ numPages }: { numPages: number }) => setTotalPages(numPages), [])
   const onPageLoad = useCallback(
     (page: { width: number; height: number }) => {
       setPageWidth(page.width)
-      setPageHeight(page.height)
     },
     []
   )
