@@ -9,6 +9,7 @@ from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,8 +52,14 @@ class DAStatusResponse(BaseModel):
     updated_at: str
 
 
+class SubmitItemReview(BaseModel):
+    item_id: str           # category string used as stable item key
+    status: str            # OK | CONFIRMED | OVERRIDDEN | REQUIRES_REVIEW
+    accountant_note: str = ""
+
+
 class SubmitToOperatorRequest(BaseModel):
-    corrected_items: list[dict]  # updated ExtractedCostItem list from accountant
+    items: list[SubmitItemReview]
 
 
 class ApproveRequest(BaseModel):
@@ -194,16 +201,77 @@ async def get_da_status(
     )
 
 
+@router.get("/{da_id}/pdf", response_class=FileResponse)
+async def get_da_pdf(
+    da_id: str,
+    session: AsyncSession = Depends(get_db),
+) -> FileResponse:
+    """Serve the uploaded FDA PDF file for in-browser viewing."""
+    da = await _get_da_or_404(da_id, session)
+    if not da.pdf_path:
+        raise HTTPException(status_code=404, detail="No PDF on record for this DA")
+    pdf_file = Path(da.pdf_path)
+    if not pdf_file.exists():
+        raise HTTPException(status_code=404, detail=f"PDF file not found on disk: {da.pdf_path}")
+    return FileResponse(
+        path=str(pdf_file),
+        media_type="application/pdf",
+        filename=pdf_file.name,
+    )
+
+
 @router.get("/{da_id}/deviation-report")
 async def get_deviation_report(
     da_id: str,
     session: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Return the full deviation report JSON for a DA."""
+    """Return the deviation report shaped for the accountant frontend.
+
+    Transforms the internal schema (line_items / estimated_value / actual_value)
+    into the frontend-expected schema (items / pda_value / fda_value / item_id /
+    bounding_box / accountant_note).
+    """
     da = await _get_da_or_404(da_id, session)
     if da.deviation_report is None:
         raise HTTPException(status_code=404, detail="Deviation report not yet available")
-    return da.deviation_report
+
+    report: dict = da.deviation_report
+
+    # Build a bounding-box lookup by category from the stored FDA JSON
+    bbox_by_category: dict[str, dict] = {}
+    if da.fda_json:
+        for extracted in da.fda_json.get("extracted_items", []):
+            cat = extracted.get("category")
+            bb = extracted.get("pdf_citation_bounding_box")
+            if cat and bb:
+                bbox_by_category[cat] = bb
+
+    items = []
+    for li in report.get("line_items", []):
+        cat = li.get("category", "")
+        bb = bbox_by_category.get(cat)
+        items.append({
+            "item_id": cat,  # category is unique per line — stable client key
+            "category": cat,
+            "description": li.get("fda_description") or li.get("pda_description") or cat,
+            "pda_value": li.get("estimated_value"),
+            "fda_value": li.get("actual_value"),
+            "abs_variance": li.get("abs_variance"),
+            "pct_variance": li.get("pct_variance"),
+            "status": li.get("status", "OK"),
+            "flag_reasons": li.get("flag_reasons", []),
+            "confidence_score": li.get("confidence_score"),
+            "bounding_box": bb,
+            "accountant_note": li.get("accountant_note", ""),
+        })
+
+    return {
+        "da_id": report.get("da_id"),
+        "port_call_id": report.get("port_call_id"),
+        "total_estimated": report.get("total_estimated"),
+        "total_actual": report.get("total_actual"),
+        "items": items,
+    }
 
 
 @router.put("/{da_id}/submit-to-operator", status_code=status.HTTP_200_OK)
@@ -224,9 +292,17 @@ async def submit_to_operator(
             detail=f"DA must be in PENDING_ACCOUNTANT_REVIEW state (current: {da.status})",
         )
 
-    # Update the stored FDA JSON with accountant corrections
-    if da.fda_json and body.corrected_items:
-        da.fda_json = {**da.fda_json, "extracted_items": body.corrected_items}
+    # Persist accountant status + notes back into the deviation report
+    if body.items and da.deviation_report:
+        review_by_id = {r.item_id: r for r in body.items}
+        updated_lines = []
+        for li in da.deviation_report.get("line_items", []):
+            cat = li.get("category", "")
+            review = review_by_id.get(cat)
+            if review:
+                li = {**li, "status": review.status, "accountant_note": review.accountant_note}
+            updated_lines.append(li)
+        da.deviation_report = {**da.deviation_report, "line_items": updated_lines}
 
     da.accountant_user_id = user_id
 
@@ -245,7 +321,7 @@ async def submit_to_operator(
 @router.post("/{da_id}/approve", status_code=status.HTTP_200_OK)
 async def approve_da(
     da_id: str,
-    body: ApproveRequest,
+    operator_remarks: str = Form(default=""),
     x_user_id: str | None = Header(default=None),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
@@ -261,12 +337,12 @@ async def approve_da(
         )
 
     da.operator_user_id = user_id
-    da.operator_remarks = body.operator_remarks
+    da.operator_remarks = operator_remarks
 
     try:
         await _state_machine.transition(
             da, "APPROVED", user_id, session,
-            note=f"Operator approved: {body.operator_remarks[:100]}",
+            note=f"Operator approved: {operator_remarks[:100]}",
         )
     except InvalidTransitionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -282,8 +358,7 @@ async def approve_da(
         "deviation_report": da.deviation_report,
         "approval": {
             "operator_user_id": user_id,
-            "operator_remarks": body.operator_remarks,
-            "item_justifications": body.item_justifications,
+            "operator_remarks": operator_remarks,
         },
         "llm_provider": da.llm_provider,
         "extraction_model": da.extraction_model,

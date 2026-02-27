@@ -75,57 +75,47 @@ export function PDFViewer({ pdfUrl, items }: Props) {
       </div>
 
       {/* PDF canvas + overlay */}
-      <div ref={containerRef} className="pdf-overlay-container overflow-auto flex-1">
-        <Document file={pdfUrl} onLoadSuccess={onDocumentLoad} className="flex justify-center">
-          <Page
-            pageNumber={currentPage}
-            width={containerRef.current?.clientWidth ?? 700}
-            onLoadSuccess={onPageLoad}
-            renderAnnotationLayer
-            renderTextLayer
-          />
-        </Document>
+      <div ref={containerRef} className="overflow-auto flex-1 flex justify-center bg-slate-50">
+        <div className="relative inline-block">
+          <Document file={pdfUrl} onLoadSuccess={onDocumentLoad}>
+            <Page
+              pageNumber={currentPage}
+              width={containerRef.current?.clientWidth ?? 700}
+              onLoadSuccess={onPageLoad}
+              renderAnnotationLayer
+              renderTextLayer
+            />
+          </Document>
 
-        {/* Bounding box highlight overlays */}
-        {pageWidth > 0 &&
-          pageHeight > 0 &&
-          visibleItems.map((item) => {
-            const bb = item.bounding_box!
-            const containerW = containerRef.current?.clientWidth ?? pageWidth
+          {/* Bounding box highlight overlays — positioned relative to page top-left */}
+          {pageWidth > 0 &&
+            pageHeight > 0 &&
+            visibleItems.map((item) => {
+              const bb = item.bounding_box!
+              const renderW = containerRef.current?.clientWidth ?? pageWidth
+              const scaleX = renderW / pageWidth
+              const scaleY = scaleX  // uniform scale — PDF aspect ratio is preserved
 
-            // Docling coords are in pt-space matching PDF page dimensions
-            // Scale from PDF pt dimensions to rendered container pixels
-            const scaleX = containerW / pageWidth
-            const scaleY = (containerW * (pageHeight / pageWidth)) / pageHeight
+              const left = bb.x1 * scaleX
+              const top = bb.y1 * scaleY
+              const width = (bb.x2 - bb.x1) * scaleX
+              const height = (bb.y2 - bb.y1) * scaleY
 
-            const left = bb.x1 * scaleX
-            const top = bb.y1 * scaleY
-            const width = (bb.x2 - bb.x1) * scaleX
-            const height = (bb.y2 - bb.y1) * scaleY
+              const isFocused = focusedItemId === item.item_id
+              const isFlagged = item.flag_reasons.includes('HIGH_DEVIATION')
+              const isReview = item.flag_reasons.length > 0 && !isFlagged
 
-            const isFocused = focusedItemId === item.item_id
-            const isFlagged = item.flag_reasons.includes('HIGH_DEVIATION')
-            const isReview = item.flag_reasons.length > 0 && !isFlagged
-
-            return (
-              <div
-                key={item.item_id}
-                title={item.description}
-                className={`bbox-highlight cursor-pointer ${isFlagged ? 'flagged' : ''} ${isReview ? 'review' : ''} ${isFocused ? 'opacity-100 z-10' : 'opacity-50 z-[1]'}`}
-                ref={(el) => {
-                  if (el) {
-                    el.style.setProperty('--bbox-x', `${left}px`)
-                    el.style.setProperty('--bbox-y', `${top}px`)
-                    el.style.setProperty('--bbox-w', `${width}px`)
-                    el.style.setProperty('--bbox-h', `${height}px`)
-                  }
-                }}
-                onClick={() => {
-                  focusItem(item.item_id === focusedItemId ? null : item.item_id)
-                }}
-              />
-            )
-          })}
+              return (
+                <div
+                  key={item.item_id}
+                  title={item.description}
+                  onClick={() => focusItem(item.item_id === focusedItemId ? null : item.item_id)}
+                  className={`bbox-highlight cursor-pointer ${isFlagged ? 'flagged' : ''} ${isReview ? 'review' : ''} ${isFocused ? 'opacity-100 z-10' : 'opacity-50 z-[1]'}`}
+                  style={{ left, top, width, height }}
+                />
+              )
+            })}
+        </div>
       </div>
     </div>
   )

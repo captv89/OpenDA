@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.pda import CategoryEnum  # re-use shared enum
 
@@ -38,21 +38,14 @@ class BoundingBox(BaseModel):
     x2: float = Field(..., ge=0.0, description="Right edge (points)")
     y2: float = Field(..., ge=0.0, description="Bottom edge (points)")
 
-    @field_validator("x2")
-    @classmethod
-    def x2_gt_x1(cls, v: float, info: object) -> float:  # noqa: ANN001
-        data = getattr(info, "data", {})
-        if "x1" in data and v <= data["x1"]:
-            raise ValueError("x2 must be greater than x1")
-        return v
-
-    @field_validator("y2")
-    @classmethod
-    def y2_gt_y1(cls, v: float, info: object) -> float:  # noqa: ANN001
-        data = getattr(info, "data", {})
-        if "y1" in data and v <= data["y1"]:
-            raise ValueError("y2 must be greater than y1")
-        return v
+    @model_validator(mode='after')
+    def ensure_ordered(self) -> 'BoundingBox':
+        """LLMs sometimes return inverted coordinates — silently swap them."""
+        if self.x2 < self.x1:
+            self.x1, self.x2 = self.x2, self.x1
+        if self.y2 < self.y1:
+            self.y1, self.y2 = self.y2, self.y1
+        return self
 
 
 class ExtractedCostItem(BaseModel):

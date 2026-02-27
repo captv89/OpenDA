@@ -106,21 +106,19 @@ export function PDFModal({ pdfUrl, items, selectedItemId, onClose }: Props) {
                 const bb = item.bounding_box!
                 const displayW = Math.min(containerRef.current?.clientWidth ?? 700, 750)
                 const scaleX = displayW / pageWidth
-                const scaleY = (displayW * (pageHeight / pageWidth)) / pageHeight
+                const scaleY = scaleX  // uniform scale — PDF aspect ratio is preserved
 
                 const isSelected = item.item_id === selectedItemId
 
                 return (
                   <div
                     key={item.item_id}
-                    className={`bbox-overlay absolute border-2 pointer-events-none transition-all ${isSelected ? 'border-red-500 bg-red-500/10 z-10' : 'border-blue-500 bg-blue-500/10 z-[1]'}`}
-                    ref={(el) => {
-                      if (el) {
-                        el.style.setProperty('--bbox-x', `${bb.x1 * scaleX}px`)
-                        el.style.setProperty('--bbox-y', `${bb.y1 * scaleY}px`)
-                        el.style.setProperty('--bbox-w', `${(bb.x2 - bb.x1) * scaleX}px`)
-                        el.style.setProperty('--bbox-h', `${(bb.y2 - bb.y1) * scaleY}px`)
-                      }
+                    className={`absolute border-2 pointer-events-none transition-all ${isSelected ? 'border-red-500 bg-red-500/10 z-10' : 'border-blue-400 bg-blue-400/10 z-[1]'}`}
+                    style={{
+                      left: bb.x1 * scaleX,
+                      top: bb.y1 * scaleY,
+                      width: (bb.x2 - bb.x1) * scaleX,
+                      height: (bb.y2 - bb.y1) * scaleY,
                     }}
                   />
                 )

@@ -58,7 +58,6 @@ async def _async_process_fda(
             raise ValueError(f"DisbursementAccount {da_id} not found")
 
         state_machine = DAStateMachine()
-        extraction_service = ExtractionService(settings)
         deviation_engine = DeviationEngine()
 
         # ── Transition: UPLOADING → AI_PROCESSING ────────────────────────────
@@ -75,11 +74,24 @@ async def _async_process_fda(
             raise ValueError(f"DA {da_id} has no pda_json stored")
         pda = PDASchema.model_validate(da.pda_json)
 
-        # ── Run extraction ────────────────────────────────────────────────────
-        fda = await extraction_service.process_pdf(pdf_path, pda, job_id)
+        # ── Run extraction via extractor microservice ──────────────────────────
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            resp = await client.post(
+                f"{settings.extractor_url}/extract",
+                json={
+                    "pdf_path": pdf_path,
+                    "pda": pda.model_dump(mode="json"),
+                    "job_id": job_id,
+                },
+            )
+            resp.raise_for_status()
+            extract_data = resp.json()
+
+        fda = FDASchema.model_validate(extract_data["fda"])
+        llm_provider = extract_data["llm_provider"]
         da.fda_json = json.loads(fda.model_dump_json())
         da.extraction_model = fda.extraction_model
-        da.llm_provider = extraction_service._llm.provider_name
+        da.llm_provider = llm_provider
         da.total_actual = fda.total_actual
 
         # ── Run deviation analysis ────────────────────────────────────────────
@@ -100,7 +112,7 @@ async def _async_process_fda(
             "status": "PENDING_ACCOUNTANT_REVIEW",
             "flagged_count": report.flagged_count,
             "total_actual": fda.total_actual,
-            "llm_provider": extraction_service._llm.provider_name,
+            "llm_provider": llm_provider,
         }
 
     except Exception as exc:
