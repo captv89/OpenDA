@@ -1,7 +1,9 @@
 """Deviation engine unit tests — pure Python, no DB required."""
 
 import datetime
+
 import pytest
+
 from app.schemas.deviation import FlagReasonEnum
 from app.services.deviation_engine import DeviationEngine
 
@@ -40,31 +42,38 @@ def _pda_item(category: str, description: str, estimated_value: float, quantity:
 
 def _make_pda(items: list[dict]):
     from app.schemas.pda import PDASchema
+
     total = sum(i["estimated_value"] * i.get("quantity", 1.0) for i in items)
-    return PDASchema.model_validate({
-        "port_call_id": "PC-2024-SGSIN-0001",
-        "vessel_name": "MV Test Vessel",
-        "vessel_imo": "1234567",
-        "port_code": "SGSIN",
-        "currency": "USD",
-        "estimated_items": items,
-        "total_estimated": total,
-        "valid_until": str(datetime.date.today()),
-    })
+    return PDASchema.model_validate(
+        {
+            "port_call_id": "PC-2024-SGSIN-0001",
+            "vessel_name": "MV Test Vessel",
+            "vessel_imo": "1234567",
+            "port_code": "SGSIN",
+            "currency": "USD",
+            "estimated_items": items,
+            "total_estimated": total,
+            "valid_until": str(datetime.date.today()),
+        }
+    )
 
 
 def _make_fda(items: list[dict]):
     from app.schemas.fda import FDASchema
+
     total = sum(i["actual_value"] for i in items)
-    return FDASchema.model_validate({
-        "port_call_id": "PC-2024-SGSIN-0001",
-        "processing_job_id": "test-job-001",
-        "extracted_items": items,
-        "total_actual": total,
-    })
+    return FDASchema.model_validate(
+        {
+            "port_call_id": "PC-2024-SGSIN-0001",
+            "processing_job_id": "test-job-001",
+            "extracted_items": items,
+            "total_actual": total,
+        }
+    )
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
+
 
 def test_exact_match_no_flags(engine):
     """Items that match exactly within thresholds produce no flags."""
@@ -96,10 +105,12 @@ def test_low_confidence_flagged(engine):
 def test_missing_pda_line_flagged(engine):
     """FDA items with no corresponding PDA category get MISSING_PDA_LINE."""
     pda = _make_pda([_pda_item("PILOTAGE", "Pilot", 300.0)])
-    fda = _make_fda([
-        _extracted_item("PILOTAGE", "Pilot", 300.0),
-        _extracted_item("AGENCY_FEE", "Agency fee", 800.0),
-    ])
+    fda = _make_fda(
+        [
+            _extracted_item("PILOTAGE", "Pilot", 300.0),
+            _extracted_item("AGENCY_FEE", "Agency fee", 800.0),
+        ]
+    )
     report = engine.compare(pda, fda, "da-test-003")
     agency = next((i for i in report.items if i.category == "AGENCY_FEE"), None)
     assert agency is not None
@@ -108,10 +119,12 @@ def test_missing_pda_line_flagged(engine):
 
 def test_missing_from_fda_flagged(engine):
     """PDA item absent from FDA gets MISSING_FROM_FDA on the report."""
-    pda = _make_pda([
-        _pda_item("PILOTAGE", "Pilot", 300.0),
-        _pda_item("LAUNCH_HIRE", "Launch hire", 200.0),
-    ])
+    pda = _make_pda(
+        [
+            _pda_item("PILOTAGE", "Pilot", 300.0),
+            _pda_item("LAUNCH_HIRE", "Launch hire", 200.0),
+        ]
+    )
     fda = _make_fda([_extracted_item("PILOTAGE", "Pilot", 300.0)])
     report = engine.compare(pda, fda, "da-test-005")
     launch = next((i for i in report.items if i.category == "LAUNCH_HIRE"), None)

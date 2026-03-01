@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from pathlib import Path
 
 import httpx
 from celery import Task
@@ -62,7 +61,10 @@ async def _async_process_fda(
 
         # ── Transition: UPLOADING → AI_PROCESSING ────────────────────────────
         await state_machine.transition(
-            da, "AI_PROCESSING", "SYSTEM", session,
+            da,
+            "AI_PROCESSING",
+            "SYSTEM",
+            session,
             note="Celery task started",
             llm_provider=settings.llm_model,
         )
@@ -101,7 +103,10 @@ async def _async_process_fda(
 
         # ── Transition: AI_PROCESSING → PENDING_ACCOUNTANT_REVIEW ────────────
         await state_machine.transition(
-            da, "PENDING_ACCOUNTANT_REVIEW", "SYSTEM", session,
+            da,
+            "PENDING_ACCOUNTANT_REVIEW",
+            "SYSTEM",
+            session,
             note=f"Extraction complete — {report.flagged_count} items flagged",
             llm_provider=settings.llm_model,
         )
@@ -120,6 +125,7 @@ async def _async_process_fda(
         # Attempt to persist error state
         try:
             from sqlalchemy import select as sel2
+
             result2 = await session.execute(
                 sel2(DisbursementAccount).where(DisbursementAccount.id == da_id)
             )

@@ -7,12 +7,12 @@ before the vessel arrives. It is the baseline against which the FDA is compared.
 from __future__ import annotations
 
 from datetime import date
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-class CategoryEnum(str, Enum):
+class CategoryEnum(StrEnum):
     """Cost categories shared across PDA and FDA schemas."""
 
     PILOTAGE = "PILOTAGE"
@@ -24,7 +24,7 @@ class CategoryEnum(str, Enum):
     OTHER = "OTHER"
 
 
-class UnitEnum(str, Enum):
+class UnitEnum(StrEnum):
     """Billing unit types."""
 
     PER_MOVEMENT = "per_movement"
@@ -120,7 +120,7 @@ class PDASchema(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_total(self) -> "PDASchema":
+    def validate_total(self) -> PDASchema:
         """Ensure declared total matches the sum of line items."""
         computed = round(
             sum(item.estimated_value * item.quantity for item in self.estimated_items), 2

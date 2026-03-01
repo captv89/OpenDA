@@ -5,34 +5,44 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, Enum as SAEnum, Float, ForeignKey, String, Text
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy import Float, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, utcnow
 
 CATEGORY_VALUES = [
-    "PILOTAGE", "TOWAGE", "PORT_DUES", "AGENCY_FEE",
-    "LAUNCH_HIRE", "WASTE_DISPOSAL", "OTHER",
+    "PILOTAGE",
+    "TOWAGE",
+    "PORT_DUES",
+    "AGENCY_FEE",
+    "LAUNCH_HIRE",
+    "WASTE_DISPOSAL",
+    "OTHER",
 ]
 
 FLAG_REASON_VALUES = [
-    "LOW_CONFIDENCE", "MISSING_PDA_LINE", "HIGH_DEVIATION", "MISSING_FROM_FDA",
+    "LOW_CONFIDENCE",
+    "MISSING_PDA_LINE",
+    "HIGH_DEVIATION",
+    "MISSING_FROM_FDA",
 ]
 
 ITEM_STATUS_VALUES = ["OK", "REQUIRES_REVIEW", "CONFIRMED", "OVERRIDDEN"]
 
 DOC_TYPE_VALUES = [
-    "DIGITAL_INVOICE", "SCANNED_RECEIPT", "HANDWRITTEN_CHIT", "OFFICIAL_RECEIPT",
+    "DIGITAL_INVOICE",
+    "SCANNED_RECEIPT",
+    "HANDWRITTEN_CHIT",
+    "OFFICIAL_RECEIPT",
 ]
 
 
 class CostItem(Base):
     __tablename__ = "cost_items"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     da_fk: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("disbursement_accounts.id", ondelete="CASCADE"),
@@ -89,7 +99,7 @@ class CostItem(Base):
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 
     # Relationships
-    disbursement_account: Mapped["DisbursementAccount"] = relationship(
+    disbursement_account: Mapped[DisbursementAccount] = relationship(
         "DisbursementAccount", back_populates="cost_items"
     )
 

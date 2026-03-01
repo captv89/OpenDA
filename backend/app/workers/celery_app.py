@@ -20,9 +20,9 @@ celery_app.conf.update(
     result_serializer="json",
     accept_content=["json"],
     task_track_started=True,
-    task_acks_late=True,            # re-queue on worker crash
-    worker_prefetch_multiplier=1,   # one task at a time per worker
-    result_expires=3600,            # keep results for 1 hour
+    task_acks_late=True,  # re-queue on worker crash
+    worker_prefetch_multiplier=1,  # one task at a time per worker
+    result_expires=3600,  # keep results for 1 hour
     timezone="UTC",
     enable_utc=True,
 )

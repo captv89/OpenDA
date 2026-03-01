@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 
 # ── Flagging thresholds ───────────────────────────────────────────────────────
 CONFIDENCE_THRESHOLD = 0.85
-ABS_VARIANCE_THRESHOLD = 500.0   # currency units
-PCT_VARIANCE_THRESHOLD = 10.0    # percent
+ABS_VARIANCE_THRESHOLD = 500.0  # currency units
+PCT_VARIANCE_THRESHOLD = 10.0  # percent
 
 
 class DeviationEngine:
@@ -101,9 +101,12 @@ class DeviationEngine:
             if pda_entry is not None and fda_entry is None:
                 flags.append(FlagReasonEnum.MISSING_FROM_FDA)
 
-            if abs_var is not None and pct_var is not None:
-                if abs(abs_var) > ABS_VARIANCE_THRESHOLD or abs(pct_var) > PCT_VARIANCE_THRESHOLD:
-                    flags.append(FlagReasonEnum.HIGH_DEVIATION)
+            if (
+                abs_var is not None
+                and pct_var is not None
+                and (abs(abs_var) > ABS_VARIANCE_THRESHOLD or abs(pct_var) > PCT_VARIANCE_THRESHOLD)
+            ):
+                flags.append(FlagReasonEnum.HIGH_DEVIATION)
 
             status = ItemStatus.REQUIRES_REVIEW if flags else ItemStatus.OK
 
@@ -123,15 +126,11 @@ class DeviationEngine:
             )
 
         # ── Aggregate statistics ──────────────────────────────────────────────
-        total_estimated = round(sum(
-            v["estimated_value"] for v in pda_map.values()
-        ), 2)
+        total_estimated = round(sum(v["estimated_value"] for v in pda_map.values()), 2)
         total_actual = round(fda.total_actual, 2)
         total_abs_variance = round(total_actual - total_estimated, 2)
         total_pct_variance = (
-            round((total_abs_variance / total_estimated) * 100, 2)
-            if total_estimated != 0
-            else None
+            round((total_abs_variance / total_estimated) * 100, 2) if total_estimated != 0 else None
         )
 
         items_not_billed = [cat for cat in pda_map if cat not in fda_map]

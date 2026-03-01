@@ -7,14 +7,14 @@ operator's approval dashboard.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.pda import CategoryEnum
 
 
-class FlagReasonEnum(str, Enum):
+class FlagReasonEnum(StrEnum):
     """Reason a cost item has been flagged for human review."""
 
     LOW_CONFIDENCE = "LOW_CONFIDENCE"
@@ -23,12 +23,12 @@ class FlagReasonEnum(str, Enum):
     MISSING_FROM_FDA = "MISSING_FROM_FDA"
 
 
-class ItemStatus(str, Enum):
+class ItemStatus(StrEnum):
     """Review status of a single deviation line."""
 
     OK = "OK"
     REQUIRES_REVIEW = "REQUIRES_REVIEW"
-    CONFIRMED = "CONFIRMED"   # accountant has explicitly confirmed the AI value
+    CONFIRMED = "CONFIRMED"  # accountant has explicitly confirmed the AI value
     OVERRIDDEN = "OVERRIDDEN"  # accountant has edited the AI value
 
 
@@ -107,8 +107,7 @@ class DeviationReport(BaseModel):
     total_pct_variance: float | None = Field(
         default=None,
         description=(
-            "Percentage total variance relative to total_estimated "
-            "(None if estimated is zero)"
+            "Percentage total variance relative to total_estimated (None if estimated is zero)"
         ),
     )
 

@@ -3,6 +3,7 @@
 Alembic is a synchronous tool; we use psycopg2 here for migrations.
 The application itself uses asyncpg at runtime — the two coexist fine.
 """
+
 import logging
 import re
 import sys
@@ -12,9 +13,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from logging.config import fileConfig  # noqa: E402
 
-from alembic import context  # noqa: E402
 from sqlalchemy import create_engine, pool  # noqa: E402
 
+from alembic import context  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.models import Base  # noqa: E402
 

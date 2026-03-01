@@ -54,6 +54,13 @@ target-version = "py312"
 select = ["E", "F", "I", "UP", "B", "SIM"]
 ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+# FastAPI Depends/File/Form/Header are idiomatically used as default values
+"app/api/routes/*.py" = ["B008"]
+# SQLAlchemy forward references in Mapped[] are strings at runtime; imports
+# under TYPE_CHECKING only — ruff cannot resolve them statically
+"app/models/*.py" = ["F821"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true

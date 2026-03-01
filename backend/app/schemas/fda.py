@@ -7,14 +7,14 @@ on every extraction response before the result is written to the database.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.pda import CategoryEnum  # re-use shared enum
 
 
-class SupportingDocumentType(str, Enum):
+class SupportingDocumentType(StrEnum):
     """Type of source document the AI found the cost item in."""
 
     DIGITAL_INVOICE = "DIGITAL_INVOICE"
@@ -38,8 +38,8 @@ class BoundingBox(BaseModel):
     x2: float = Field(..., ge=0.0, description="Right edge (points)")
     y2: float = Field(..., ge=0.0, description="Bottom edge (points)")
 
-    @model_validator(mode='after')
-    def ensure_ordered(self) -> 'BoundingBox':
+    @model_validator(mode="after")
+    def ensure_ordered(self) -> BoundingBox:
         """LLMs sometimes return inverted coordinates — silently swap them."""
         if self.x2 < self.x1:
             self.x1, self.x2 = self.x2, self.x1

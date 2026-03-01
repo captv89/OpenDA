@@ -22,7 +22,9 @@ async def health_check() -> dict:
         "status": "ok",
         "app_env": settings.app_env,
         "llm_model": settings.llm_model,
-        "llm_provider": settings.llm_model.split("/")[0] if "/" in settings.llm_model else settings.llm_model,
+        "llm_provider": settings.llm_model.split("/")[0]
+        if "/" in settings.llm_model
+        else settings.llm_model,
     }
 
     # ── DB check ──────────────────────────────────────────────────────────────
@@ -38,6 +40,7 @@ async def health_check() -> dict:
     # ── Redis check ───────────────────────────────────────────────────────────
     try:
         import redis.asyncio as aioredis
+
         r = aioredis.from_url(settings.redis_url, socket_connect_timeout=2)
         await r.ping()
         await r.aclose()

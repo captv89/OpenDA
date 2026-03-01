@@ -19,8 +19,6 @@ from app.database import get_db
 from app.models.audit_log import AuditLog
 from app.models.disbursement_account import DisbursementAccount
 from app.models.port_call import PortCall
-from app.schemas.deviation import DeviationReport
-from app.schemas.fda import FDASchema
 from app.schemas.pda import PDASchema
 from app.services.state_machine import DAStateMachine, InvalidTransitionError
 
@@ -31,6 +29,7 @@ _state_machine = DAStateMachine()
 
 
 # ── Response models ───────────────────────────────────────────────────────────
+
 
 class UploadResponse(BaseModel):
     job_id: str
@@ -54,8 +53,8 @@ class DAStatusResponse(BaseModel):
 
 
 class SubmitItemReview(BaseModel):
-    item_id: str           # category string used as stable item key
-    status: str            # OK | CONFIRMED | OVERRIDDEN | REQUIRES_REVIEW
+    item_id: str  # category string used as stable item key
+    status: str  # OK | CONFIRMED | OVERRIDDEN | REQUIRES_REVIEW
     accountant_note: str = ""
 
 
@@ -69,6 +68,7 @@ class ApproveRequest(BaseModel):
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 async def _get_da_or_404(da_id: str, session: AsyncSession) -> DisbursementAccount:
     result = await session.execute(
@@ -91,6 +91,7 @@ def _get_user_id(x_user_id: str | None, settings: Settings, role: str) -> str:
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
+
 @router.post("/upload", response_model=UploadResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_fda(
     pda_json: str = Form(..., description="PDA JSON string (serialised PDASchema)"),
@@ -106,9 +107,7 @@ async def upload_fda(
     if fda_pdf.content_type not in ("application/pdf", "application/octet-stream"):
         filename = fda_pdf.filename or ""
         if not filename.lower().endswith(".pdf"):
-            raise HTTPException(
-                status_code=400, detail="Only PDF files are accepted"
-            )
+            raise HTTPException(status_code=400, detail="Only PDF files are accepted")
 
     # ── Validate PDA JSON ─────────────────────────────────────────────────────
     try:
@@ -119,9 +118,7 @@ async def upload_fda(
     port_call_id = pda.port_call_id
 
     # ── Upsert PortCall ───────────────────────────────────────────────────────
-    result = await session.execute(
-        select(PortCall).where(PortCall.port_call_id == port_call_id)
-    )
+    result = await session.execute(select(PortCall).where(PortCall.port_call_id == port_call_id))
     port_call = result.scalar_one_or_none()
     if port_call is None:
         port_call = PortCall(
@@ -164,7 +161,10 @@ async def upload_fda(
 
     logger.info(
         "Uploaded FDA for port_call=%s da_id=%s job=%s pdf=%s",
-        port_call_id, da_id, task.id, pdf_path.name,
+        port_call_id,
+        da_id,
+        task.id,
+        pdf_path.name,
     )
 
     return UploadResponse(
@@ -220,9 +220,7 @@ async def get_da_status(
     """Return current DA status, flagged item count, and timestamps."""
     da = await _get_da_or_404(da_id, session)
 
-    result = await session.execute(
-        select(PortCall).where(PortCall.id == da.port_call_fk)
-    )
+    result = await session.execute(select(PortCall).where(PortCall.id == da.port_call_fk))
     port_call = result.scalar_one()
 
     return DAStatusResponse(
@@ -289,20 +287,22 @@ async def get_deviation_report(
     for li in report.get("line_items", []):
         cat = li.get("category", "")
         bb = bbox_by_category.get(cat)
-        items.append({
-            "item_id": cat,  # category is unique per line — stable client key
-            "category": cat,
-            "description": li.get("fda_description") or li.get("pda_description") or cat,
-            "pda_value": li.get("estimated_value"),
-            "fda_value": li.get("actual_value"),
-            "abs_variance": li.get("abs_variance"),
-            "pct_variance": li.get("pct_variance"),
-            "status": li.get("status", "OK"),
-            "flag_reasons": li.get("flag_reasons", []),
-            "confidence_score": li.get("confidence_score"),
-            "bounding_box": bb,
-            "accountant_note": li.get("accountant_note", ""),
-        })
+        items.append(
+            {
+                "item_id": cat,  # category is unique per line — stable client key
+                "category": cat,
+                "description": li.get("fda_description") or li.get("pda_description") or cat,
+                "pda_value": li.get("estimated_value"),
+                "fda_value": li.get("actual_value"),
+                "abs_variance": li.get("abs_variance"),
+                "pct_variance": li.get("pct_variance"),
+                "status": li.get("status", "OK"),
+                "flag_reasons": li.get("flag_reasons", []),
+                "confidence_score": li.get("confidence_score"),
+                "bounding_box": bb,
+                "accountant_note": li.get("accountant_note", ""),
+            }
+        )
 
     return {
         "da_id": report.get("da_id"),
@@ -347,7 +347,10 @@ async def submit_to_operator(
 
     try:
         await _state_machine.transition(
-            da, "PENDING_OPERATOR_APPROVAL", user_id, session,
+            da,
+            "PENDING_OPERATOR_APPROVAL",
+            user_id,
+            session,
             note="Accountant review complete, submitted to operator",
         )
     except InvalidTransitionError as exc:
@@ -380,7 +383,10 @@ async def approve_da(
 
     try:
         await _state_machine.transition(
-            da, "APPROVED", user_id, session,
+            da,
+            "APPROVED",
+            user_id,
+            session,
             note=f"Operator approved: {operator_remarks[:100]}",
         )
     except InvalidTransitionError as exc:
@@ -412,7 +418,10 @@ async def approve_da(
 
         # Transition to PUSHED_TO_ERP
         await _state_machine.transition(
-            da, "PUSHED_TO_ERP", "SYSTEM", session,
+            da,
+            "PUSHED_TO_ERP",
+            "SYSTEM",
+            session,
             note=f"Webhook delivered to {settings.webhook_url}",
         )
         await session.commit()
@@ -436,9 +445,7 @@ async def reject_da(
     user_id = _get_user_id(x_user_id, settings, "accountant")
 
     try:
-        await _state_machine.transition(
-            da, "REJECTED", user_id, session, note=reason
-        )
+        await _state_machine.transition(da, "REJECTED", user_id, session, note=reason)
     except InvalidTransitionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
@@ -456,9 +463,7 @@ async def get_audit_log(
     await _get_da_or_404(da_id, session)
 
     result = await session.execute(
-        select(AuditLog)
-        .where(AuditLog.da_fk == da_id)
-        .order_by(AuditLog.created_at)
+        select(AuditLog).where(AuditLog.da_fk == da_id).order_by(AuditLog.created_at)
     )
     logs = result.scalars().all()
     return [
@@ -481,5 +486,7 @@ async def webhook_echo(payload: dict) -> dict:
 
     Replace WEBHOOK_URL in .env with your ERP/VMS endpoint in production.
     """
-    logger.info("Webhook echo received — DA: %s, status: %s", payload.get("da_id"), payload.get("status"))
+    logger.info(
+        "Webhook echo received — DA: %s, status: %s", payload.get("da_id"), payload.get("status")
+    )
     return {"received": True, "da_id": payload.get("da_id"), "status": payload.get("status")}

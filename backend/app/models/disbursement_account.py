@@ -5,7 +5,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Enum as SAEnum, ForeignKey, String, Text
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,6 +15,7 @@ from app.models.base import Base, utcnow
 
 class DAStatus(str):
     """DA lifecycle states — used as Python-level enum values in the SA column."""
+
     UPLOADING = "UPLOADING"
     AI_PROCESSING = "AI_PROCESSING"
     PENDING_ACCOUNTANT_REVIEW = "PENDING_ACCOUNTANT_REVIEW"
@@ -37,9 +39,7 @@ DA_STATUS_VALUES = [
 class DisbursementAccount(Base):
     __tablename__ = "disbursement_accounts"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     port_call_fk: Mapped[str] = mapped_column(
         String(36), ForeignKey("port_calls.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -77,13 +77,11 @@ class DisbursementAccount(Base):
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 
     # Relationships
-    port_call: Mapped["PortCall"] = relationship(
-        "PortCall", back_populates="disbursement_accounts"
-    )
-    cost_items: Mapped[list["CostItem"]] = relationship(
+    port_call: Mapped[PortCall] = relationship("PortCall", back_populates="disbursement_accounts")
+    cost_items: Mapped[list[CostItem]] = relationship(
         "CostItem", back_populates="disbursement_account", cascade="all, delete-orphan"
     )
-    audit_logs: Mapped[list["AuditLog"]] = relationship(
+    audit_logs: Mapped[list[AuditLog]] = relationship(
         "AuditLog", back_populates="disbursement_account", cascade="all, delete-orphan"
     )
 

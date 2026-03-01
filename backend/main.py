@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 import sys
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -86,6 +86,8 @@ async def root() -> dict:
         "version": "1.0.0",
         "docs": "/docs",
         "health": "/api/v1/health",
-        "llm_provider": settings.llm_model.split("/")[0] if "/" in settings.llm_model else settings.llm_model,
+        "llm_provider": settings.llm_model.split("/")[0]
+        if "/" in settings.llm_model
+        else settings.llm_model,
         "llm_model": settings.llm_model,
     }

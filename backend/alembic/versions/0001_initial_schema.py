@@ -5,20 +5,22 @@ Revises:
 Create Date: 2025-01-01 00:00:00.000000
 
 """
+
 from __future__ import annotations
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 
+from alembic import op
+
 # revision identifiers, used by Alembic.
 revision: str = "0001"
-down_revision: Union[str, None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -35,57 +37,97 @@ def upgrade() -> None:
         # DO block + EXCEPTION is the only 100%-reliable idempotent approach
         # for enum types in PostgreSQL.  Works correctly with psycopg2 because
         # dollar-quoted blocks are handled by libpq directly.
-        conn.execute(sa.text(
-            f"DO $ENUM$ BEGIN "
-            f"  CREATE TYPE {type_name} AS ENUM ({quoted}); "
-            f"EXCEPTION WHEN duplicate_object THEN NULL; "
-            f"END $ENUM$;"
-        ))
+        conn.execute(
+            sa.text(
+                f"DO $ENUM$ BEGIN "
+                f"  CREATE TYPE {type_name} AS ENUM ({quoted}); "
+                f"EXCEPTION WHEN duplicate_object THEN NULL; "
+                f"END $ENUM$;"
+            )
+        )
 
     def _table_exists(name: str) -> bool:
-        return bool(conn.execute(
-            sa.text(
-                "SELECT 1 FROM information_schema.tables "
-                "WHERE table_schema = 'public' AND table_name = :n"
-            ),
-            {"n": name},
-        ).scalar())
+        return bool(
+            conn.execute(
+                sa.text(
+                    "SELECT 1 FROM information_schema.tables "
+                    "WHERE table_schema = 'public' AND table_name = :n"
+                ),
+                {"n": name},
+            ).scalar()
+        )
 
     def _index_exists(name: str) -> bool:
-        return bool(conn.execute(
-            sa.text("SELECT 1 FROM pg_indexes WHERE indexname = :n"),
-            {"n": name},
-        ).scalar())
+        return bool(
+            conn.execute(
+                sa.text("SELECT 1 FROM pg_indexes WHERE indexname = :n"),
+                {"n": name},
+            ).scalar()
+        )
 
-    def _create_index(index_name: str, table: str, columns: list[str], unique: bool = False) -> None:
+    def _create_index(
+        index_name: str, table: str, columns: list[str], unique: bool = False
+    ) -> None:
         if not _index_exists(index_name):
             unique_kw = "UNIQUE " if unique else ""
             cols = ", ".join(columns)
-            conn.execute(sa.text(
-                f"CREATE {unique_kw}INDEX {index_name} ON {table} ({cols})"
-            ))
+            conn.execute(sa.text(f"CREATE {unique_kw}INDEX {index_name} ON {table} ({cols})"))
 
     # ------------------------------------------------------------------
     # ENUM types
     # ------------------------------------------------------------------
-    _make_enum("da_status_enum", [
-        "UPLOADING", "AI_PROCESSING", "PENDING_ACCOUNTANT_REVIEW",
-        "PENDING_OPERATOR_APPROVAL", "APPROVED", "REJECTED", "PUSHED_TO_ERP",
-    ])
+    _make_enum(
+        "da_status_enum",
+        [
+            "UPLOADING",
+            "AI_PROCESSING",
+            "PENDING_ACCOUNTANT_REVIEW",
+            "PENDING_OPERATOR_APPROVAL",
+            "APPROVED",
+            "REJECTED",
+            "PUSHED_TO_ERP",
+        ],
+    )
     _make_enum("cost_item_source_enum", ["PDA", "FDA"])
-    _make_enum("category_enum", [
-        "PILOTAGE", "TOWAGE", "PORT_DUES", "AGENCY_FEE",
-        "LAUNCH_HIRE", "WASTE_DISPOSAL", "OTHER",
-    ])
-    _make_enum("doc_type_enum", [
-        "DIGITAL_INVOICE", "SCANNED_RECEIPT", "HANDWRITTEN_CHIT", "OFFICIAL_RECEIPT",
-    ])
-    _make_enum("item_status_enum", [
-        "OK", "REQUIRES_REVIEW", "CONFIRMED", "OVERRIDDEN",
-    ])
-    _make_enum("flag_reason_enum", [
-        "LOW_CONFIDENCE", "MISSING_PDA_LINE", "HIGH_DEVIATION", "MISSING_FROM_FDA",
-    ])
+    _make_enum(
+        "category_enum",
+        [
+            "PILOTAGE",
+            "TOWAGE",
+            "PORT_DUES",
+            "AGENCY_FEE",
+            "LAUNCH_HIRE",
+            "WASTE_DISPOSAL",
+            "OTHER",
+        ],
+    )
+    _make_enum(
+        "doc_type_enum",
+        [
+            "DIGITAL_INVOICE",
+            "SCANNED_RECEIPT",
+            "HANDWRITTEN_CHIT",
+            "OFFICIAL_RECEIPT",
+        ],
+    )
+    _make_enum(
+        "item_status_enum",
+        [
+            "OK",
+            "REQUIRES_REVIEW",
+            "CONFIRMED",
+            "OVERRIDDEN",
+        ],
+    )
+    _make_enum(
+        "flag_reason_enum",
+        [
+            "LOW_CONFIDENCE",
+            "MISSING_PDA_LINE",
+            "HIGH_DEVIATION",
+            "MISSING_FROM_FDA",
+        ],
+    )
 
     # ------------------------------------------------------------------
     # Tables
@@ -142,9 +184,13 @@ def upgrade() -> None:
             sa.Column("created_at", sa.DateTime(timezone=False), nullable=False),
             sa.Column("updated_at", sa.DateTime(timezone=False), nullable=False),
         )
-    _create_index("ix_disbursement_accounts_port_call_fk", "disbursement_accounts", ["port_call_fk"])
+    _create_index(
+        "ix_disbursement_accounts_port_call_fk", "disbursement_accounts", ["port_call_fk"]
+    )
     _create_index("ix_disbursement_accounts_status", "disbursement_accounts", ["status"])
-    _create_index("ix_disbursement_accounts_celery_job_id", "disbursement_accounts", ["celery_job_id"])
+    _create_index(
+        "ix_disbursement_accounts_celery_job_id", "disbursement_accounts", ["celery_job_id"]
+    )
 
     if not _table_exists("cost_items"):
         op.create_table(
@@ -156,14 +202,20 @@ def upgrade() -> None:
                 sa.ForeignKey("disbursement_accounts.id", ondelete="CASCADE"),
                 nullable=False,
             ),
-            sa.Column("source", PgEnum(name="cost_item_source_enum", create_type=False), nullable=False),
+            sa.Column(
+                "source", PgEnum(name="cost_item_source_enum", create_type=False), nullable=False
+            ),
             sa.Column("category", PgEnum(name="category_enum", create_type=False), nullable=False),
             sa.Column("description", sa.Text(), nullable=False),
             sa.Column("estimated_value", sa.Float(), nullable=True),
             sa.Column("actual_value", sa.Float(), nullable=True),
             sa.Column("currency", sa.String(3), nullable=False, server_default="USD"),
             sa.Column("confidence_score", sa.Float(), nullable=True),
-            sa.Column("supporting_document_type", PgEnum(name="doc_type_enum", create_type=False), nullable=True),
+            sa.Column(
+                "supporting_document_type",
+                PgEnum(name="doc_type_enum", create_type=False),
+                nullable=True,
+            ),
             sa.Column("bounding_box", postgresql.JSONB(), nullable=True),
             sa.Column("abs_variance", sa.Float(), nullable=True),
             sa.Column("pct_variance", sa.Float(), nullable=True),
@@ -173,7 +225,9 @@ def upgrade() -> None:
                 nullable=False,
                 server_default="OK",
             ),
-            sa.Column("flag_reason", PgEnum(name="flag_reason_enum", create_type=False), nullable=True),
+            sa.Column(
+                "flag_reason", PgEnum(name="flag_reason_enum", create_type=False), nullable=True
+            ),
             sa.Column("flag_reasons", postgresql.JSONB(), nullable=True),
             sa.Column("accountant_note", sa.Text(), nullable=True),
             sa.Column("operator_justification", sa.Text(), nullable=True),
@@ -211,7 +265,11 @@ def downgrade() -> None:
     op.drop_table("port_calls")
 
     for name in [
-        "flag_reason_enum", "item_status_enum", "doc_type_enum",
-        "category_enum", "cost_item_source_enum", "da_status_enum",
+        "flag_reason_enum",
+        "item_status_enum",
+        "doc_type_enum",
+        "category_enum",
+        "cost_item_source_enum",
+        "da_status_enum",
     ]:
         op.execute(f"DROP TYPE IF EXISTS {name}")

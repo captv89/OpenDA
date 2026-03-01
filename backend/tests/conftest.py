@@ -1,8 +1,8 @@
 """Pytest configuration for OpenDA backend tests."""
 
 import asyncio
+
 import pytest
-from httpx import AsyncClient, ASGITransport
 
 
 @pytest.fixture(scope="session")

@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import DateTime
-from sqlalchemy.orm import DeclarativeBase, mapped_column, MappedColumn
+from sqlalchemy.orm import DeclarativeBase
 
 
 def utcnow() -> datetime:
     # Return naive UTC datetime — columns are TIMESTAMP WITHOUT TIME ZONE.
     # asyncpg rejects timezone-aware datetimes for such columns.
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class Base(DeclarativeBase):

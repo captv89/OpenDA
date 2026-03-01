@@ -14,9 +14,7 @@ from app.models.base import Base, utcnow
 class AuditLog(Base):
     __tablename__ = "audit_log"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     da_fk: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("disbursement_accounts.id", ondelete="CASCADE"),
@@ -39,7 +37,7 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
     # Relationships
-    disbursement_account: Mapped["DisbursementAccount"] = relationship(
+    disbursement_account: Mapped[DisbursementAccount] = relationship(
         "DisbursementAccount", back_populates="audit_logs"
     )
 

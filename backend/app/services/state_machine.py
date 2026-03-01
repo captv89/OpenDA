@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audit_log import AuditLog
-from app.models.disbursement_account import DA_STATUS_VALUES
 
 if TYPE_CHECKING:
     from app.models.disbursement_account import DisbursementAccount
@@ -22,8 +21,8 @@ VALID_TRANSITIONS: dict[str, list[str]] = {
     "PENDING_ACCOUNTANT_REVIEW": ["PENDING_OPERATOR_APPROVAL", "REJECTED"],
     "PENDING_OPERATOR_APPROVAL": ["APPROVED", "REJECTED", "PENDING_ACCOUNTANT_REVIEW"],
     "APPROVED": ["PUSHED_TO_ERP"],
-    "REJECTED": [],          # terminal
-    "PUSHED_TO_ERP": [],     # terminal
+    "REJECTED": [],  # terminal
+    "PUSHED_TO_ERP": [],  # terminal
 }
 
 
@@ -36,7 +35,7 @@ class DAStateMachine:
 
     async def transition(
         self,
-        da: "DisbursementAccount",
+        da: DisbursementAccount,
         new_status: str,
         actor: str,
         session: AsyncSession,
