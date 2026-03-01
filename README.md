@@ -5,6 +5,40 @@
 
 ---
 
+## Maritime DA Workflow — Where OpenDA Fits
+
+```mermaid
+flowchart TD
+    subgraph PORT ["Port Operations"]
+        V[Vessel Arrives at Port]
+        V --> SVC["Port Agent Provides Services\npilotage · towage · berth · provisions · crew"]
+        SVC --> FDA_DOC["Port Agent Issues FDA\nFinal Disbursement Account"]
+    end
+
+    subgraph OWNER ["Ship Owner / Operator"]
+        FDA_DOC --> RECV["Receives FDA + PDA Proforma Estimate"]
+        RECV --> TRAD["Traditional Approach\n── manual line-by-line comparison ──\n⚠ error-prone  ·  days to complete\n⚠ no audit trail  ·  no provider lock-in"]
+    end
+
+    subgraph OPENDA ["OpenDA  —  AI-Assisted DA Validation"]
+        direction TB
+        UP["① Accountant Uploads\nPDA JSON + FDA PDF"]
+        EXT["② AI Extraction  Docling + LLM\nPDF parsed into structured line items + bounding boxes"]
+        DEV["③ Deviation Engine\nPDA vs FDA comparison · flags HIGH_DEVIATION,\nLOW_CONFIDENCE, MISSING lines"]
+        ACCT["④ Accountant Review UI\nAI-highlighted deviations overlaid on PDF\nAccept, annotate or reject each item"]
+        OPS["⑤ Operator Approval UI\nFinal sign-off with remarks"]
+        AUD["⑥ Immutable Audit Trail\nEvery decision logged with actor + timestamp"]
+        UP --> EXT --> DEV --> ACCT --> OPS --> AUD
+    end
+
+    RECV -- "replaces" --> UP
+    TRAD -. "eliminated by OpenDA" .-> UP
+    AUD --> ERP["ERP / VMS System\nWebhook push on approval"]
+    ERP --> FIN(["DA Settled & Archived ✓"])
+```
+
+---
+
 ## Architecture
 
 ```mermaid
@@ -191,12 +225,25 @@ For local testing: `WEBHOOK_URL=http://localhost:8000/api/v1/da/webhook-echo`
 
 ## DA Lifecycle
 
-```
-UPLOADING → AI_PROCESSING → PENDING_ACCOUNTANT_REVIEW
-                         ↗  (retry on failure)
-                  → PENDING_OPERATOR_APPROVAL
-                         → APPROVED → PUSHED_TO_ERP
-                         → REJECTED
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> UPLOADING : accountant uploads PDA JSON + FDA PDF
+
+    UPLOADING --> AI_PROCESSING : file stored, Celery task enqueued
+    AI_PROCESSING --> AI_PROCESSING : retry on transient LLM failure
+    AI_PROCESSING --> PENDING_ACCOUNTANT_REVIEW : deviation report generated
+    AI_PROCESSING --> REJECTED : unrecoverable extraction error
+
+    PENDING_ACCOUNTANT_REVIEW --> PENDING_OPERATOR_APPROVAL : accountant reviews & submits
+    PENDING_ACCOUNTANT_REVIEW --> REJECTED : accountant rejects DA
+
+    PENDING_OPERATOR_APPROVAL --> APPROVED : operator approves
+    PENDING_OPERATOR_APPROVAL --> REJECTED : operator rejects
+
+    APPROVED --> PUSHED_TO_ERP : ERP webhook fired
+    PUSHED_TO_ERP --> [*]
+    REJECTED --> [*]
 ```
 
 ---
