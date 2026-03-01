@@ -25,12 +25,14 @@ export function PDFModal({ pdfUrl, items, selectedItemId, onClose }: Props) {
   )
   const [totalPages, setTotalPages] = useState(1)
   const [pageWidth, setPageWidth] = useState(0)
+  const [pageHeight, setPageHeight] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const onDocLoad = useCallback(({ numPages }: { numPages: number }) => setTotalPages(numPages), [])
   const onPageLoad = useCallback(
     (page: { width: number; height: number }) => {
       setPageWidth(page.width)
+      setPageHeight(page.height)
     },
     []
   )
@@ -106,6 +108,7 @@ export function PDFModal({ pdfUrl, items, selectedItemId, onClose }: Props) {
                 const scaleX = displayW / pageWidth
                 const scaleY = scaleX  // uniform scale — PDF aspect ratio is preserved
 
+                // PDF origin is bottom-left; screen origin is top-left — flip Y axis
                 const isSelected = item.item_id === selectedItemId
 
                 return (
@@ -114,9 +117,9 @@ export function PDFModal({ pdfUrl, items, selectedItemId, onClose }: Props) {
                     className={`absolute border-2 pointer-events-none transition-all ${isSelected ? 'border-red-500 bg-red-500/10 z-10' : 'border-blue-400 bg-blue-400/10 z-[1]'}`}
                     style={{
                       left: bb.x1 * scaleX,
-                      top: bb.y1 * scaleY,
+                      top: (pageHeight - bb.y2) * scaleY,
                       width: (bb.x2 - bb.x1) * scaleX,
-                      height: (bb.y2 - bb.y1) * scaleY,
+                      height: Math.max((bb.y2 - bb.y1) * scaleY, 14),
                     }}
                   />
                 )

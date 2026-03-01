@@ -96,10 +96,11 @@ export function PDFViewer({ pdfUrl, items }: Props) {
               const scaleX = renderW / pageWidth
               const scaleY = scaleX  // uniform scale — PDF aspect ratio is preserved
 
+              // PDF origin is bottom-left; screen origin is top-left — flip Y axis
               const left = bb.x1 * scaleX
-              const top = bb.y1 * scaleY
+              const top = (pageHeight - bb.y2) * scaleY
               const width = (bb.x2 - bb.x1) * scaleX
-              const height = (bb.y2 - bb.y1) * scaleY
+              const height = Math.max((bb.y2 - bb.y1) * scaleY, 14)
 
               const isFocused = focusedItemId === item.item_id
               const isFlagged = item.flag_reasons.includes('HIGH_DEVIATION')

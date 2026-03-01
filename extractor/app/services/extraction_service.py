@@ -31,7 +31,16 @@ text and return them as a single JSON object that exactly matches the schema bel
    - 0.60–0.79: Slightly unclear scan, handwritten chit, or partially legible amount
    - 0.40–0.59: Very unclear, rotated, or ambiguous text
    - <0.40: Almost certainly incorrect or estimated
-3. For pdf_citation_bounding_box, use the Docling bounding box coordinates.
+3. For pdf_citation_bounding_box:
+   - The BOUNDING BOX DATA section below lists every text block with its exact page
+     coordinates in PDF point units (origin = bottom-left of page, y increases upward).
+   - For each extracted item, find the text block(s) whose text contains the item's
+     description or amount and use those EXACT coordinates.
+   - Each item MUST have DIFFERENT bounding box coordinates that correspond to WHERE
+     that specific line item appears in the document.
+   - x1/y1 = bottom-left corner of the text block, x2/y2 = top-right corner.
+   - If an item spans multiple blocks, use the block containing its amount/description.
+   - Never reuse the same bounding box for different items.
 4. Classify supporting_document_type based on document description.
 5. Map each item to the nearest CategoryEnum value:
    PILOTAGE | TOWAGE | PORT_DUES | AGENCY_FEE | LAUNCH_HIRE | WASTE_DISPOSAL | OTHER
@@ -101,8 +110,10 @@ class ExtractionService:
                 "label": item.get("label", "text"),
                 "page": prov.get("page_no", 1),
                 "bbox": {
-                    "x1": bbox.get("l", 0.0), "y1": bbox.get("t", 0.0),
-                    "x2": bbox.get("r", 0.0), "y2": bbox.get("b", 0.0),
+                    # Docling uses bottom-left origin: l=left, r=right, b=bottom, t=top
+                    # b < t (bottom is a lower y value than top)
+                    "x1": bbox.get("l", 0.0), "y1": bbox.get("b", 0.0),
+                    "x2": bbox.get("r", 0.0), "y2": bbox.get("t", 0.0),
                 },
             })
 
@@ -119,8 +130,8 @@ class ExtractionService:
                 "page": prov.get("page_no", 1),
                 "cells": cells,
                 "bbox": {
-                    "x1": bbox.get("l", 0.0), "y1": bbox.get("t", 0.0),
-                    "x2": bbox.get("r", 0.0), "y2": bbox.get("b", 0.0),
+                    "x1": bbox.get("l", 0.0), "y1": bbox.get("b", 0.0),
+                    "x2": bbox.get("r", 0.0), "y2": bbox.get("t", 0.0),
                 },
             })
 
@@ -149,8 +160,14 @@ class ExtractionService:
         sections.append(docling_output["markdown"])
 
         if docling_output["text_blocks"]:
-            sections.append("\n=== BOUNDING BOX DATA ===")
-            for block in docling_output["text_blocks"][:100]:
+            sections.append(
+                "\n=== BOUNDING BOX DATA ===\n"
+                "Each line below shows a text block with its EXACT PDF coordinates.\n"
+                "Coordinates use bottom-left page origin; x1/y1 = bottom-left corner, x2/y2 = top-right corner.\n"
+                "Match each extracted cost item to the block(s) containing its description or amount\n"
+                "and copy those coordinates verbatim into pdf_citation_bounding_box.\n"
+            )
+            for block in docling_output["text_blocks"]:
                 bb = block["bbox"]
                 sections.append(
                     f"[Page {block['page']} | "
