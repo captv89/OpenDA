@@ -182,6 +182,7 @@ function UploadForm({ onUploaded }: { onUploaded: (daId: string, url: string) =>
       {/* Pending inbox — shown below the upload form */}
       <div className="w-full max-w-lg">
         <PendingInbox onSelect={(da) => {
+          setPdfUrl(null)  // clear any stale blob URL from a prior upload
           setActiveDAId(da.da_id)
           onUploaded(da.da_id, '')
         }} />
@@ -198,6 +199,11 @@ export function ReviewPage() {
   const pdfUrl = useDAStore((s) => s.pdfUrl)
   const initEdits = useDAStore((s) => s.initEdits)
   const edits = useDAStore((s) => s.edits)
+
+  // Prefer the local blob URL (freshly uploaded file) but fall back to the
+  // backend's served PDF for DAs loaded from the pending inbox.
+  const BASE = import.meta.env.VITE_API_BASE ?? ''
+  const effectivePdfUrl = pdfUrl || (activeDAId ? `${BASE}/api/v1/da/${activeDAId}/pdf` : null)
 
   const { data: daStatus } = useDAStatus(activeDAId)
   const { data: deviation } = useDeviationReport(
@@ -260,8 +266,8 @@ export function ReviewPage() {
         <div className="flex flex-1 overflow-hidden">
           {/* LEFT — PDF viewer */}
           <div className="w-1/2 border-r border-slate-200 overflow-hidden p-3 bg-slate-50">
-            {pdfUrl ? (
-              <PDFViewer pdfUrl={pdfUrl} items={deviation?.items ?? []} />
+            {effectivePdfUrl ? (
+              <PDFViewer pdfUrl={effectivePdfUrl} items={deviation?.items ?? []} />
             ) : (
               <div className="flex items-center justify-center h-full text-slate-400 text-sm">
                 PDF preview not available
