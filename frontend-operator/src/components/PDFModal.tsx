@@ -25,14 +25,18 @@ export function PDFModal({ pdfUrl, items, selectedItemId, onClose }: Props) {
   )
   const [totalPages, setTotalPages] = useState(1)
   const [pageWidth, setPageWidth] = useState(0)
-  const [pageHeight, setPageHeight] = useState(0)
+  // Native PDF dimensions in PDF points (from the pdf.js PDFPageProxy.view array).
+  const [pdfNativeWidth, setPdfNativeWidth] = useState(0)
+  const [pdfNativeHeight, setPdfNativeHeight] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const onDocLoad = useCallback(({ numPages }: { numPages: number }) => setTotalPages(numPages), [])
   const onPageLoad = useCallback(
-    (page: { width: number; height: number }) => {
+    (page: { width: number; height: number; view: number[] }) => {
       setPageWidth(page.width)
-      setPageHeight(page.height)
+      // view = [x0, y0, x1, y1] in PDF points (e.g. [0, 0, 595.28, 841.89])
+      setPdfNativeWidth(page.view[2] - page.view[0])
+      setPdfNativeHeight(page.view[3] - page.view[1])
     },
     []
   )
@@ -101,14 +105,14 @@ export function PDFModal({ pdfUrl, items, selectedItemId, onClose }: Props) {
             </Document>
 
             {/* Bounding box overlays */}
-            {pageWidth > 0 &&
+            {pdfNativeWidth > 0 &&
               pageItems.map((item) => {
                 const bb = item.bounding_box!
-                const displayW = Math.min(containerRef.current?.clientWidth ?? 700, 750)
-                const scaleX = displayW / pageWidth
-                const scaleY = scaleX  // uniform scale — PDF aspect ratio is preserved
+                // scale: maps PDF points → rendered CSS pixels.
+                const scale = pageWidth / pdfNativeWidth
 
-                // PDF origin is bottom-left; screen origin is top-left — flip Y axis
+                // Docling BOTTOMLEFT origin: y=0 at bottom, increases upward.
+                // CSS origin: y=0 at top, increases downward. Flip with native PDF height.
                 const isSelected = item.item_id === selectedItemId
 
                 return (
@@ -116,10 +120,10 @@ export function PDFModal({ pdfUrl, items, selectedItemId, onClose }: Props) {
                     key={item.item_id}
                     className={`absolute border-2 pointer-events-none transition-all ${isSelected ? 'border-red-500 bg-red-500/10 z-10' : 'border-blue-400 bg-blue-400/10 z-[1]'}`}
                     style={{
-                      left: bb.x1 * scaleX,
-                      top: (pageHeight - bb.y2) * scaleY,
-                      width: (bb.x2 - bb.x1) * scaleX,
-                      height: Math.max((bb.y2 - bb.y1) * scaleY, 14),
+                      left: bb.x1 * scale,
+                      top: (pdfNativeHeight - bb.y2) * scale,
+                      width: (bb.x2 - bb.x1) * scale,
+                      height: Math.max((bb.y2 - bb.y1) * scale, 14),
                     }}
                   />
                 )

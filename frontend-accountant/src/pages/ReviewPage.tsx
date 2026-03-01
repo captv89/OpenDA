@@ -16,11 +16,12 @@ import {
   useDeviationReport,
   useUploadDA,
   useSubmitToOperator,
+  usePendingDAs,
 } from '@/api/daApi'
 import { PDFViewer } from '@/components/PDFViewer'
 import { ItemForm } from '@/components/ItemForm'
 import { SubmitButton } from '@/components/SubmitButton'
-import type { SubmitPayload } from '@/types'
+import type { DAStatusResponse, SubmitPayload } from '@/types'
 
 // ── Status banner ────────────────────────────────────────────────────────────
 
@@ -46,12 +47,65 @@ function StatusBanner({ status }: { status: string }) {
     </div>
   )
 }
+// ── Pending inbox ─────────────────────────────────────────────────────────────────
 
+function PendingInbox({ onSelect }: { onSelect: (da: DAStatusResponse) => void }) {
+  const { data: rows, isLoading } = usePendingDAs('PENDING_ACCOUNTANT_REVIEW')
+
+  if (isLoading) return (
+    <div className="mt-4 flex justify-center py-6 text-sm text-slate-400">Loading pending reviews…</div>
+  )
+  if (!rows?.length) return (
+    <div className="mt-4 rounded-xl border border-slate-200 bg-white px-6 py-5 text-center text-sm text-slate-400">
+      No disbursement accounts pending accountant review.
+    </div>
+  )
+
+  return (
+    <div className="mt-4 rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-700">Pending Accountant Review</h3>
+        <span className="text-xs bg-amber-100 text-amber-700 font-medium px-2 py-0.5 rounded-full">
+          {rows.length} item{rows.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+      <ul className="divide-y divide-slate-100">
+        {rows.map((da) => (
+          <li key={da.da_id} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-slate-800 truncate">
+                {da.vessel_name ?? da.port_call_id}
+              </p>
+              <p className="text-xs text-slate-500 font-mono truncate">
+                {da.port_call_id} · {da.da_id.slice(0, 8)}…
+              </p>
+              {(da.total_actual != null || da.total_estimated != null) && (
+                <p className="text-xs text-slate-400">
+                  Est: ${da.total_estimated?.toFixed(2) ?? '—'}
+                  {da.flagged_items_count > 0 && (
+                    <span className="ml-2 text-red-500">{da.flagged_items_count} flagged</span>
+                  )}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => onSelect(da)}
+              className="ml-4 flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-500 text-white hover:bg-brand-700 transition-colors"
+            >
+              Review
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
 // ── Upload form ───────────────────────────────────────────────────────────────
 
 function UploadForm({ onUploaded }: { onUploaded: (daId: string, url: string) => void }) {
   const upload = useUploadDA()
   const setPdfUrl = useDAStore((s) => s.setPdfUrl)
+  const setActiveDAId = useDAStore((s) => s.setActiveDAId)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -75,7 +129,7 @@ function UploadForm({ onUploaded }: { onUploaded: (daId: string, url: string) =>
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center bg-slate-50">
+    <div className="flex-1 overflow-y-auto flex flex-col items-center bg-slate-50 px-4 py-8">
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-lg bg-white rounded-xl shadow-lg p-8 space-y-5"
@@ -124,6 +178,14 @@ function UploadForm({ onUploaded }: { onUploaded: (daId: string, url: string) =>
           {upload.isPending ? 'Uploading…' : 'Upload & Analyse'}
         </button>
       </form>
+
+      {/* Pending inbox — shown below the upload form */}
+      <div className="w-full max-w-lg">
+        <PendingInbox onSelect={(da) => {
+          setActiveDAId(da.da_id)
+          onUploaded(da.da_id, '')
+        }} />
+      </div>
     </div>
   )
 }

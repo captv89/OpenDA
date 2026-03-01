@@ -42,6 +42,7 @@ class UploadResponse(BaseModel):
 class DAStatusResponse(BaseModel):
     da_id: str
     port_call_id: str
+    vessel_name: str | None
     status: str
     flagged_items_count: int
     total_estimated: float | None
@@ -174,6 +175,43 @@ async def upload_fda(
     )
 
 
+@router.get("", response_model=list[DAStatusResponse])
+async def list_das(
+    status: str | None = None,
+    session: AsyncSession = Depends(get_db),
+) -> list[DAStatusResponse]:
+    """Return all DAs, optionally filtered by status.
+
+    Example: GET /da?status=PENDING_ACCOUNTANT_REVIEW
+    """
+    stmt = select(DisbursementAccount, PortCall).join(
+        PortCall, PortCall.id == DisbursementAccount.port_call_fk
+    )
+    if status:
+        stmt = stmt.where(DisbursementAccount.status == status)
+    stmt = stmt.order_by(DisbursementAccount.updated_at.desc())
+
+    result = await session.execute(stmt)
+    rows = result.all()
+
+    return [
+        DAStatusResponse(
+            da_id=da.id,
+            port_call_id=pc.port_call_id,
+            vessel_name=pc.vessel_name,
+            status=da.status,
+            flagged_items_count=da.flagged_items_count,
+            total_estimated=da.total_estimated,
+            total_actual=da.total_actual,
+            extraction_model=da.extraction_model,
+            llm_provider=da.llm_provider,
+            created_at=da.created_at.isoformat(),
+            updated_at=da.updated_at.isoformat(),
+        )
+        for da, pc in rows
+    ]
+
+
 @router.get("/{da_id}/status", response_model=DAStatusResponse)
 async def get_da_status(
     da_id: str,
@@ -190,6 +228,7 @@ async def get_da_status(
     return DAStatusResponse(
         da_id=da.id,
         port_call_id=port_call.port_call_id,
+        vessel_name=port_call.vessel_name,
         status=da.status,
         flagged_items_count=da.flagged_items_count,
         total_estimated=da.total_estimated,

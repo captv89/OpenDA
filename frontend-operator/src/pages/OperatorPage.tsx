@@ -8,13 +8,13 @@
  * In production, a list of pending DAs would be fetched from /api/v1/da/pending.
  */
 import { useState } from 'react'
-import { useDAStatus, useDeviationReport, useAuditLog, useApproveDA, useRejectDA } from '@/api/daApi'
+import { useDAStatus, useDeviationReport, useAuditLog, useApproveDA, useRejectDA, usePendingDAs } from '@/api/daApi'
 import { SummaryBar } from '@/components/SummaryBar'
 import { DeviationTable } from '@/components/DeviationTable'
 import { PDFModal } from '@/components/PDFModal'
 import { JustificationInput } from '@/components/JustificationInput'
 import { ApproveRejectButtons } from '@/components/ApproveButton'
-import type { AuditLogEntry } from '@/types'
+import type { AuditLogEntry, DAStatusResponse } from '@/types'
 
 // ── Audit log drawer ──────────────────────────────────────────────────────────
 
@@ -50,17 +50,69 @@ function AuditDrawer({ entries }: { entries: AuditLogEntry[] }) {
     </div>
   )
 }
+// ── Pending inbox ─────────────────────────────────────────────────────────────────
 
+function PendingInbox({ onSelect }: { onSelect: (da: DAStatusResponse) => void }) {
+  const { data: rows, isLoading } = usePendingDAs('PENDING_OPERATOR_APPROVAL')
+
+  if (isLoading) return (
+    <div className="mt-4 flex justify-center py-6 text-sm text-slate-400">Loading pending approvals…</div>
+  )
+  if (!rows?.length) return (
+    <div className="mt-4 rounded-xl border border-slate-200 bg-white px-6 py-5 text-center text-sm text-slate-400">
+      No disbursement accounts pending operator approval.
+    </div>
+  )
+
+  return (
+    <div className="mt-4 rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-700">Pending Operator Approval</h3>
+        <span className="text-xs bg-purple-100 text-purple-700 font-medium px-2 py-0.5 rounded-full">
+          {rows.length} item{rows.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+      <ul className="divide-y divide-slate-100">
+        {rows.map((da) => (
+          <li key={da.da_id} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-slate-800 truncate">
+                {da.vessel_name ?? da.port_call_id}
+              </p>
+              <p className="text-xs text-slate-500 font-mono truncate">
+                {da.port_call_id} · {da.da_id.slice(0, 8)}…
+              </p>
+              {(da.total_actual != null || da.total_estimated != null) && (
+                <p className="text-xs text-slate-400">
+                  Actual: ${da.total_actual?.toFixed(2) ?? '—'}
+                  {da.flagged_items_count > 0 && (
+                    <span className="ml-2 text-red-500">{da.flagged_items_count} flagged</span>
+                  )}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => onSelect(da)}
+              className="ml-4 flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-500 text-white hover:bg-brand-700 transition-colors"
+            >
+              Review
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
 // ── Input form — enter DA ID ──────────────────────────────────────────────────
 
 function DAIdInput({ onSubmit }: { onSubmit: (id: string) => void }) {
   const [value, setValue] = useState('')
   return (
-    <div className="flex-1 flex items-center justify-center bg-slate-50">
+    <div className="flex-1 overflow-y-auto flex flex-col items-center bg-slate-50 px-4 py-8">
       <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md space-y-4">
         <h2 className="text-xl font-bold text-slate-800">Operator Approval</h2>
         <p className="text-sm text-slate-500">
-          Enter the Disbursement Account ID forwarded by the accountant.
+          Select a pending DA below or enter a DA ID manually.
         </p>
         <input
           className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
@@ -76,6 +128,11 @@ function DAIdInput({ onSubmit }: { onSubmit: (id: string) => void }) {
         >
           Load DA
         </button>
+      </div>
+
+      {/* Pending inbox below the manual input */}
+      <div className="w-full max-w-md">
+        <PendingInbox onSelect={(da) => onSubmit(da.da_id)} />
       </div>
     </div>
   )

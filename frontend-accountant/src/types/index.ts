@@ -60,6 +60,7 @@ export interface DeviationReport {
 export interface DAStatusResponse {
     da_id: string
     port_call_id: string
+    vessel_name: string | null
     status: DAStatus
     flagged_items_count: number
     total_estimated: number | null

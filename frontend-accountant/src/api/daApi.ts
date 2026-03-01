@@ -22,12 +22,22 @@ export const api = axios.create({
 // ── Query keys ──────────────────────────────────────────────────────────────
 
 export const keys = {
+    list: (status?: string) => ['da', 'list', status] as const,
     status: (daId: string) => ['da', daId, 'status'] as const,
     deviation: (daId: string) => ['da', daId, 'deviation'] as const,
     auditLog: (daId: string) => ['da', daId, 'audit-log'] as const,
 }
 
 // ── Queries ──────────────────────────────────────────────────────────────────
+
+export function usePendingDAs(statusFilter: string) {
+    return useQuery<DAStatusResponse[]>({
+        queryKey: keys.list(statusFilter),
+        queryFn: () =>
+            api.get<DAStatusResponse[]>('/da', { params: { status: statusFilter } }).then(r => r.data),
+        refetchInterval: 15_000,
+    })
+}
 
 export function useDAStatus(daId: string | null) {
     return useQuery<DAStatusResponse>({

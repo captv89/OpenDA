@@ -33,7 +33,11 @@ export function PDFViewer({ pdfUrl, items }: Props) {
   const focusItem = useDAStore((s) => s.focusItem)
 
   const [pageWidth, setPageWidth] = useState<number>(0)
-  const [pageHeight, setPageHeight] = useState<number>(0)
+  // Native PDF dimensions in PDF points (from the pdf.js PDFPageProxy.view array).
+  // These are ~595 × 842 pt for A4 regardless of the CSS render size and are
+  // required to correctly map BOTTOMLEFT bbox coords → CSS pixel positions.
+  const [pdfNativeWidth, setPdfNativeWidth] = useState<number>(0)
+  const [pdfNativeHeight, setPdfNativeHeight] = useState<number>(0)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const onDocumentLoad = useCallback(
@@ -42,9 +46,11 @@ export function PDFViewer({ pdfUrl, items }: Props) {
   )
 
   const onPageLoad = useCallback(
-    (page: { width: number; height: number }) => {
+    (page: { width: number; height: number; view: number[] }) => {
       setPageWidth(page.width)
-      setPageHeight(page.height)
+      // view = [x0, y0, x1, y1] in PDF points (e.g. [0, 0, 595.28, 841.89])
+      setPdfNativeWidth(page.view[2] - page.view[0])
+      setPdfNativeHeight(page.view[3] - page.view[1])
     },
     []
   )
@@ -88,19 +94,21 @@ export function PDFViewer({ pdfUrl, items }: Props) {
           </Document>
 
           {/* Bounding box highlight overlays — positioned relative to page top-left */}
-          {pageWidth > 0 &&
-            pageHeight > 0 &&
+          {pdfNativeWidth > 0 &&
+            pdfNativeHeight > 0 &&
             visibleItems.map((item) => {
               const bb = item.bounding_box!
-              const renderW = containerRef.current?.clientWidth ?? pageWidth
-              const scaleX = renderW / pageWidth
-              const scaleY = scaleX  // uniform scale — PDF aspect ratio is preserved
+              // scale: maps PDF points → rendered CSS pixels.
+              // pageWidth (from react-pdf callback) is in CSS px; pdfNativeWidth is
+              // in PDF pt. Their ratio is the uniform scale for both axes.
+              const scale = pageWidth / pdfNativeWidth
 
-              // PDF origin is bottom-left; screen origin is top-left — flip Y axis
-              const left = bb.x1 * scaleX
-              const top = (pageHeight - bb.y2) * scaleY
-              const width = (bb.x2 - bb.x1) * scaleX
-              const height = Math.max((bb.y2 - bb.y1) * scaleY, 14)
+              // Docling BOTTOMLEFT origin: y=0 at bottom, increases upward.
+              // CSS origin: y=0 at top, increases downward. Flip with native PDF height.
+              const left = bb.x1 * scale
+              const top = (pdfNativeHeight - bb.y2) * scale
+              const width = (bb.x2 - bb.x1) * scale
+              const height = Math.max((bb.y2 - bb.y1) * scale, 14)
 
               const isFocused = focusedItemId === item.item_id
               const isFlagged = item.flag_reasons.includes('HIGH_DEVIATION')
