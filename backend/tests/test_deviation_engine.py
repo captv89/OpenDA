@@ -80,7 +80,7 @@ def test_exact_match_no_flags(engine):
     pda = _make_pda([_pda_item("PILOTAGE", "Inward pilot", 500.0)])
     fda = _make_fda([_extracted_item("PILOTAGE", "Inward pilot", 500.0, confidence=0.95)])
     report = engine.compare(pda, fda, "da-test-001")
-    flagged = [i for i in report.items if i.flag_reasons]
+    flagged = [i for i in report.line_items if i.flag_reasons]
     assert len(flagged) == 0
 
 
@@ -89,7 +89,7 @@ def test_high_deviation_flagged(engine):
     pda = _make_pda([_pda_item("TOWAGE", "Tug services", 1000.0)])
     fda = _make_fda([_extracted_item("TOWAGE", "Tug services", 1200.0)])
     report = engine.compare(pda, fda, "da-test-002")
-    assert any(FlagReasonEnum.HIGH_DEVIATION in i.flag_reasons for i in report.items)
+    assert any(FlagReasonEnum.HIGH_DEVIATION in i.flag_reasons for i in report.line_items)
 
 
 def test_low_confidence_flagged(engine):
@@ -97,7 +97,7 @@ def test_low_confidence_flagged(engine):
     pda = _make_pda([_pda_item("PORT_DUES", "Port dues", 800.0)])
     fda = _make_fda([_extracted_item("PORT_DUES", "Port dues", 800.0, confidence=0.70)])
     report = engine.compare(pda, fda, "da-test-004")
-    dues = next((i for i in report.items if i.category == "PORT_DUES"), None)
+    dues = next((i for i in report.line_items if i.category == "PORT_DUES"), None)
     assert dues is not None
     assert FlagReasonEnum.LOW_CONFIDENCE in dues.flag_reasons
 
@@ -112,7 +112,7 @@ def test_missing_pda_line_flagged(engine):
         ]
     )
     report = engine.compare(pda, fda, "da-test-003")
-    agency = next((i for i in report.items if i.category == "AGENCY_FEE"), None)
+    agency = next((i for i in report.line_items if i.category == "AGENCY_FEE"), None)
     assert agency is not None
     assert FlagReasonEnum.MISSING_PDA_LINE in agency.flag_reasons
 
@@ -127,6 +127,6 @@ def test_missing_from_fda_flagged(engine):
     )
     fda = _make_fda([_extracted_item("PILOTAGE", "Pilot", 300.0)])
     report = engine.compare(pda, fda, "da-test-005")
-    launch = next((i for i in report.items if i.category == "LAUNCH_HIRE"), None)
+    launch = next((i for i in report.line_items if i.category == "LAUNCH_HIRE"), None)
     assert launch is not None
     assert FlagReasonEnum.MISSING_FROM_FDA in launch.flag_reasons
