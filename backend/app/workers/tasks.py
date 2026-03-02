@@ -13,8 +13,12 @@ import logging
 
 import httpx
 from celery import Task
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from app.config import get_settings
 from app.models.disbursement_account import DisbursementAccount
@@ -27,10 +31,10 @@ from app.workers.celery_app import celery_app
 logger = logging.getLogger(__name__)
 
 
-async def _get_session(database_url: str) -> tuple[AsyncSession, object]:
+async def _get_session(database_url: str) -> tuple[AsyncSession, AsyncEngine]:
     """Create a fresh engine + session for use inside a Celery worker."""
     engine = create_async_engine(database_url, echo=False)
-    AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
     session = AsyncSessionLocal()
     return session, engine
 
@@ -142,7 +146,7 @@ async def _async_process_fda(
         await engine.dispose()
 
 
-@celery_app.task(
+@celery_app.task(  # type: ignore[untyped-decorator]
     bind=True,
     name="app.workers.tasks.process_fda_document",
     max_retries=3,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import Float, ForeignKey, String, Text
@@ -11,6 +12,9 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, utcnow
+
+if TYPE_CHECKING:
+    from app.models.disbursement_account import DisbursementAccount
 
 CATEGORY_VALUES = [
     "PILOTAGE",

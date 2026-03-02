@@ -45,29 +45,29 @@ class DeviationEngine:
         # ── Build lookup maps ─────────────────────────────────────────────────
         # PDA: category → CostItem (sum quantities × value for comparisons)
         pda_map: dict[CategoryEnum, dict] = {}
-        for item in pda.estimated_items:
-            cat = item.category
+        for pda_item in pda.estimated_items:
+            cat = pda_item.category
             if cat not in pda_map:
                 pda_map[cat] = {
-                    "description": item.description,
+                    "description": pda_item.description,
                     "estimated_value": 0.0,
                 }
-            pda_map[cat]["estimated_value"] += item.estimated_value * item.quantity
+            pda_map[cat]["estimated_value"] += pda_item.estimated_value * pda_item.quantity
 
         # FDA: category → ExtractedCostItem (last one wins if duplicates)
         fda_map: dict[CategoryEnum, dict] = {}
-        for item in fda.extracted_items:
-            cat = item.category
+        for fda_item in fda.extracted_items:
+            cat = fda_item.category
             if cat not in fda_map:
                 fda_map[cat] = {
-                    "description": item.description,
+                    "description": fda_item.description,
                     "actual_value": 0.0,
-                    "confidence_score": item.confidence_score,
+                    "confidence_score": fda_item.confidence_score,
                 }
-            fda_map[cat]["actual_value"] += item.actual_value
+            fda_map[cat]["actual_value"] += fda_item.actual_value
             # Use the minimum confidence score across duplicate categories
             fda_map[cat]["confidence_score"] = min(
-                fda_map[cat]["confidence_score"], item.confidence_score
+                fda_map[cat]["confidence_score"], fda_item.confidence_score
             )
 
         # ── Build line items for all categories seen in either document ────────

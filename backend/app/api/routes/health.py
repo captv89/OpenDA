@@ -43,7 +43,7 @@ async def health_check() -> dict:
 
         r = aioredis.from_url(settings.redis_url, socket_connect_timeout=2)
         await r.ping()
-        await r.aclose()
+        await r.aclose()  # type: ignore[attr-defined]
         status["redis"] = "connected"
     except Exception as exc:
         logger.warning("Redis health check failed: %s", exc)
